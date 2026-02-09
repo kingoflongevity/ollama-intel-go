@@ -14,6 +14,7 @@ Ollama 英特尔优化版是一个专为英特尔硬件优化的桌面应用解�
 - **仪表盘**：实时监控系统状态、模型使用情况和服务状态
 - **日志管理**：查看、过滤、导出应用日志
 - **设置管理**：配置服务参数、环境变量和英特尔硬件优化选项
+- **OpenAI 兼容 API**：提供与 OpenAI API 兼容的接口，让本地模型可以被其他应用标准化调用
 
 ### 英特尔优化亮点
 - **GPU 加速**：充分利用 Intel Arc GPU 进行模型推理加速
@@ -129,6 +130,7 @@ This version is specially optimized for Intel processors, Intel Arc GPU, and rel
 - **Dashboard**：Real-time monitoring of system status, model usage, and service status
 - **Log Management**：View, filter, and export application logs
 - **Settings Management**：Configure service parameters, environment variables, and Intel hardware optimization options
+- **OpenAI Compatible API**：Provides an interface compatible with OpenAI API, allowing local models to be called by other applications in a standardized way
 
 ### Intel Optimization Highlights
 - **GPU Acceleration**：Fully utilize Intel Arc GPU for model inference acceleration
