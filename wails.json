@@ -15,7 +15,7 @@
     "height": 800,
     "min_width": 800,
     "min_height": 600,
-    "title": "Ollama Desktop Intel",
+    "title": "Ollama 英特尔优化版GUI",
     "always_on_top": false,
     "resizable": true,
     "disable_minimise": false,
