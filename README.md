@@ -37,9 +37,11 @@ Ollama 英特尔优化版是一个专为英特尔硬件优化的桌面应用解�
 - **存储**：至少 20GB 可用空间
 
 ### 软件要求
-- **操作系统**：Windows 10/11、macOS 12+、Linux（Ubuntu 20.04+）
+- **操作系统**：Windows 10/11、Linux（Ubuntu 20.04+）
 - **Ollama**：v0.9.0 或更高版本
 - **网络**：拉取模型时需要互联网连接
+
+> **注意**：当前版本暂不支持 macOS 平台，仅支持 Windows 和 Linux 系统。
 
 ## 快速开始
 
@@ -150,9 +152,11 @@ This version is specially optimized for Intel processors, Intel Arc GPU, and rel
 - **Storage**：At least 20GB available space
 
 ### Software Requirements
-- **Operating System**：Windows 10/11, macOS 12+, Linux (Ubuntu 20.04+)
+- **Operating System**：Windows 10/11, Linux (Ubuntu 20.04+)
 - **Ollama**：v0.9.0 or higher
 - **Network**：Internet connection required for pulling models
+
+> **Note**：macOS platform is not supported in the current version, only Windows and Linux systems are supported.
 
 ## Quick Start
 
