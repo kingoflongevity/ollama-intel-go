@@ -1,0 +1,31 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "ollama-desktop-intel",
+  "outputfilename": "ollama-desktop-intel",
+  "assetdir": ".",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "windows": {
+    "console": false
+  },
+  "window": {
+    "width": 1200,
+    "height": 800,
+    "min_width": 800,
+    "min_height": 600,
+    "title": "Ollama Desktop Intel",
+    "always_on_top": false,
+    "resizable": true,
+    "disable_minimise": false,
+    "disable_maximise": false,
+    "fullscreen": false,
+    "start_hidden": false,
+    "start_centered": true
+  },
+  "author": {
+    "name": "User Name",
+    "email": "user@example.com"
+  }
+}

@@ -1,0 +1,5 @@
+build/bin
+node_modules
+frontend/dist
+ollama-intel-ubuntu/
+ollama-intel-win/
