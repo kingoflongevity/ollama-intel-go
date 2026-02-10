@@ -140,6 +140,10 @@ func (a *App) startup(ctx context.Context) {
 	a.environmentVariables["OLLAMA_INTEL_GPU"] = true
 	a.environmentVariables["OLLAMA_DEBUG"] = false
 	a.environmentVariables["ONEAPI_DEVICE_SELECTOR"] = ""
+	// OpenAI兼容API默认值
+	a.environmentVariables["OLLAMA_OPENAI_COMPATIBLE"] = true
+	a.environmentVariables["OLLAMA_OPENAI_PORT"] = 8080
+	a.environmentVariables["OLLAMA_OPENAI_API_KEY"] = ""
 
 	log.Println("startup: 开始初始化")
 
@@ -770,49 +774,49 @@ func (a *App) GetOllamaPath() map[string]interface{} {
 // getConfigPath 获取配置文件路径
 func (a *App) getConfigPath() string {
 	var configDir string
-	
+
 	if runtime.GOOS == "windows" {
 		configDir = filepath.Join(os.Getenv("APPDATA"), "ollama-intel")
 	} else {
 		configDir = filepath.Join(os.Getenv("HOME"), ".config", "ollama-intel")
 	}
-	
+
 	// 确保配置目录存在
 	os.MkdirAll(configDir, 0755)
-	
+
 	return filepath.Join(configDir, "config.json")
 }
 
 // loadConfig 从文件加载配置
 func (a *App) loadConfig() {
 	configPath := a.getConfigPath()
-	
+
 	// 检查配置文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		log.Println("loadConfig: 配置文件不存在，使用默认配置")
 		return
 	}
-	
+
 	// 读取配置文件
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Printf("loadConfig: 读取配置文件失败: %v\n", err)
 		return
 	}
-	
+
 	// 解析配置文件
 	var config map[string]interface{}
 	if err := json.Unmarshal(data, &config); err != nil {
 		log.Printf("loadConfig: 解析配置文件失败: %v\n", err)
 		return
 	}
-	
+
 	// 加载环境变量配置
 	if envVars, ok := config["environmentVariables"].(map[string]interface{}); ok {
 		a.environmentVariables = envVars
 		log.Println("loadConfig: 环境变量配置已加载")
 	}
-	
+
 	// 加载Ollama路径配置
 	if ollamaPath, ok := config["ollamaPath"].(string); ok && ollamaPath != "" {
 		a.ollamaPath = ollamaPath
@@ -823,27 +827,27 @@ func (a *App) loadConfig() {
 // saveConfig 保存配置到文件
 func (a *App) saveConfig() {
 	configPath := a.getConfigPath()
-	
+
 	// 构建配置数据
 	config := map[string]interface{}{
 		"environmentVariables": a.environmentVariables,
 		"ollamaPath":           a.ollamaPath,
 		"lastSaved":            time.Now().Format(time.RFC3339),
 	}
-	
+
 	// 序列化配置数据
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		log.Printf("saveConfig: 序列化配置失败: %v\n", err)
 		return
 	}
-	
+
 	// 写入配置文件
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		log.Printf("saveConfig: 写入配置文件失败: %v\n", err)
 		return
 	}
-	
+
 	log.Printf("saveConfig: 配置已保存到 %s\n", configPath)
 }
 
@@ -1635,7 +1639,7 @@ func (a *App) startOllamaService() error {
 			env = append(env, fmt.Sprintf("%s=%d", key, int(intValue)))
 		}
 	}
-	
+
 	// 确保 OLLAMA_DEBUG 为 false，避免服务以 debug 模式运行
 	cmd.Env = env
 	log.Printf("startOllamaService: 应用环境变量: %+v\n", a.environmentVariables)
@@ -1801,7 +1805,7 @@ func (a *App) WebSocketHandler(w http.ResponseWriter, r *http.Request) {
 	go a.WebSocketChat(conn)
 }
 
-// 初始化HTTP服务器，添加WebSocket路由
+// 初始化HTTP服务器，添加WebSocket路由和OpenAI兼容API
 func (a *App) initHTTPServer() {
 	// 启动HTTP服务器，监听WebSocket连接
 	go func() {
@@ -1814,4 +1818,390 @@ func (a *App) initHTTPServer() {
 			log.Printf("WebSocket服务器启动失败: %v", err)
 		}
 	}()
+
+	// 启动OpenAI兼容API服务器
+	go a.initOpenAIServer()
+}
+
+// OpenAIChatRequest OpenAI兼容的聊天请求
+type OpenAIChatRequest struct {
+	Model       string                   `json:"model"`
+	Messages    []map[string]interface{} `json:"messages"`
+	Temperature float64                  `json:"temperature,omitempty"`
+	MaxTokens   int                      `json:"max_tokens,omitempty"`
+	Stream      bool                     `json:"stream,omitempty"`
+	APIKey      string                   `json:"api_key,omitempty"`
+}
+
+// OpenAIChatResponse OpenAI兼容的聊天响应
+
+type OpenAIChatResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Index        int                    `json:"index"`
+		Message      map[string]interface{} `json:"message"`
+		FinishReason string                 `json:"finish_reason"`
+	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
+}
+
+// OpenAIStreamResponse OpenAI兼容的流式响应
+
+type OpenAIStreamResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Index        int                    `json:"index"`
+		Delta        map[string]interface{} `json:"delta"`
+		FinishReason string                 `json:"finish_reason"`
+	} `json:"choices"`
+}
+
+// OpenAIModelResponse OpenAI兼容的模型响应
+
+type OpenAIModelResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	OwnedBy string `json:"owned_by"`
+}
+
+// OpenAIModelsResponse OpenAI兼容的模型列表响应
+
+type OpenAIModelsResponse struct {
+	Object string                `json:"object"`
+	Data   []OpenAIModelResponse `json:"data"`
+}
+
+// initOpenAIServer 初始化OpenAI兼容API服务器
+func (a *App) initOpenAIServer() {
+	// 获取OpenAI兼容API端口配置
+	port := 8080
+	if portVal, ok := a.environmentVariables["OLLAMA_OPENAI_PORT"]; ok {
+		if p, ok := portVal.(float64); ok {
+			port = int(p)
+		}
+	}
+
+	// 注册OpenAI兼容API路由
+	http.HandleFunc("/v1/chat/completions", a.handleOpenAIChatCompletions)
+	http.HandleFunc("/v1/models", a.handleOpenAIModels)
+	http.HandleFunc("/v1/models/", a.handleOpenAIModel)
+
+	// 启动服务器
+	serverAddr := fmt.Sprintf(":%d", port)
+	log.Printf("OpenAI兼容API服务器启动在 %s", serverAddr)
+	if err := http.ListenAndServe(serverAddr, nil); err != nil {
+		log.Printf("OpenAI兼容API服务器启动失败: %v", err)
+	}
+}
+
+// handleOpenAIChatCompletions 处理OpenAI兼容的聊天完成请求
+func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
+	// 检查请求方法
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 检查API密钥（如果设置了）
+	if apiKey, ok := a.environmentVariables["OLLAMA_OPENAI_API_KEY"]; ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			// 从请求头获取API密钥
+			authHeader := r.Header.Get("Authorization")
+			expectedAuth := "Bearer " + keyStr
+			if authHeader != expectedAuth {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+	}
+
+	// 解析请求体
+	var req OpenAIChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 检查是否启用了OpenAI兼容API
+	if enabled, ok := a.environmentVariables["OLLAMA_OPENAI_COMPATIBLE"]; !ok || !enabled.(bool) {
+		http.Error(w, "OpenAI compatible API is disabled", http.StatusServiceUnavailable)
+		return
+	}
+
+	// 转换为Ollama聊天请求
+	ollamaMessages := make([]ChatMessage, 0, len(req.Messages))
+	for _, msg := range req.Messages {
+		role, _ := msg["role"].(string)
+		content, _ := msg["content"].(string)
+		ollamaMessages = append(ollamaMessages, ChatMessage{
+			Role:    role,
+			Content: content,
+		})
+	}
+
+	ollamaReq := ChatRequest{
+		Model:    req.Model,
+		Messages: ollamaMessages,
+		Stream:   req.Stream,
+	}
+
+	// 处理流式响应
+	if req.Stream {
+		a.handleOpenAIStreamResponse(w, ollamaReq)
+		return
+	}
+
+	// 处理非流式响应
+	response := a.handleOpenAINonStreamResponse(ollamaReq)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleOpenAIStreamResponse 处理OpenAI兼容的流式响应
+func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest) {
+	// 设置响应头
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// 使用HTTP API进行聊天
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	// 构建请求体
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		w.Write([]byte("error: Invalid request\n\n"))
+		return
+	}
+
+	// 发送请求
+	resp, err := client.Post("http://127.0.0.1:11434/api/chat", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		w.Write([]byte("error: Failed to connect to Ollama service\n\n"))
+		return
+	}
+	defer resp.Body.Close()
+
+	// 处理流式响应
+	scanner := bufio.NewScanner(resp.Body)
+	var fullContent strings.Builder
+	responseID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
+	created := time.Now().Unix()
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// 解析单行JSON
+		var chunk struct {
+			Model     string      `json:"model"`
+			CreatedAt string      `json:"created_at"`
+			Message   ChatMessage `json:"message"`
+			Done      bool        `json:"done"`
+			Error     string      `json:"error,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			continue
+		}
+
+		// 累积内容
+		if chunk.Message.Content != "" {
+			fullContent.WriteString(chunk.Message.Content)
+
+			// 构建OpenAI流式响应
+			streamResp := OpenAIStreamResponse{
+				ID:      responseID,
+				Object:  "chat.completion.chunk",
+				Created: created,
+				Model:   req.Model,
+				Choices: []struct {
+					Index        int                    `json:"index"`
+					Delta        map[string]interface{} `json:"delta"`
+					FinishReason string                 `json:"finish_reason"`
+				}{
+					{
+						Index: 0,
+						Delta: map[string]interface{}{
+							"role":    "assistant",
+							"content": chunk.Message.Content,
+						},
+					},
+				},
+			}
+
+			// 发送流式数据
+			w.Write([]byte("data: "))
+			json.NewEncoder(w).Encode(streamResp)
+			w.Write([]byte("\n"))
+			w.(http.Flusher).Flush()
+		}
+
+		// 当完成时，发送最终响应
+		if chunk.Done {
+			// 构建完成响应
+			finishResp := OpenAIStreamResponse{
+				ID:      responseID,
+				Object:  "chat.completion.chunk",
+				Created: created,
+				Model:   req.Model,
+				Choices: []struct {
+					Index        int                    `json:"index"`
+					Delta        map[string]interface{} `json:"delta"`
+					FinishReason string                 `json:"finish_reason"`
+				}{
+					{
+						Index:        0,
+						Delta:        map[string]interface{}{},
+						FinishReason: "stop",
+					},
+				},
+			}
+
+			// 发送完成数据
+			w.Write([]byte("data: "))
+			json.NewEncoder(w).Encode(finishResp)
+			w.Write([]byte("\n"))
+			w.Write([]byte("data: [DONE]\n\n"))
+			w.(http.Flusher).Flush()
+			break
+		}
+	}
+}
+
+// handleOpenAINonStreamResponse 处理OpenAI兼容的非流式响应
+func (a *App) handleOpenAINonStreamResponse(req ChatRequest) OpenAIChatResponse {
+	// 使用现有的ChatCompletion方法获取响应
+	ollamaResp := a.ChatCompletion(req)
+
+	// 构建OpenAI响应
+	responseID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
+	created := time.Now().Unix()
+
+	return OpenAIChatResponse{
+		ID:      responseID,
+		Object:  "chat.completion",
+		Created: created,
+		Model:   req.Model,
+		Choices: []struct {
+			Index        int                    `json:"index"`
+			Message      map[string]interface{} `json:"message"`
+			FinishReason string                 `json:"finish_reason"`
+		}{
+			{
+				Index: 0,
+				Message: map[string]interface{}{
+					"role":    ollamaResp.Message.Role,
+					"content": ollamaResp.Message.Content,
+				},
+				FinishReason: "stop",
+			},
+		},
+		Usage: struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		}{
+			PromptTokens:     len(ollamaResp.Message.Content),
+			CompletionTokens: len(ollamaResp.Message.Content),
+			TotalTokens:      len(ollamaResp.Message.Content) + len(ollamaResp.Message.Content),
+		},
+	}
+}
+
+// handleOpenAIModels 处理OpenAI兼容的模型列表请求
+func (a *App) handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
+	// 检查请求方法
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 检查API密钥（如果设置了）
+	if apiKey, ok := a.environmentVariables["OLLAMA_OPENAI_API_KEY"]; ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			// 从请求头获取API密钥
+			authHeader := r.Header.Get("Authorization")
+			expectedAuth := "Bearer " + keyStr
+			if authHeader != expectedAuth {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+	}
+
+	// 获取本地模型列表
+	models := a.ListModels()
+
+	// 构建OpenAI模型响应
+	var modelResponses []OpenAIModelResponse
+	for _, model := range models {
+		modelResponses = append(modelResponses, OpenAIModelResponse{
+			ID:      model.Name,
+			Object:  "model",
+			Created: time.Now().Unix(),
+			OwnedBy: "ollama",
+		})
+	}
+
+	// 构建响应
+	response := OpenAIModelsResponse{
+		Object: "list",
+		Data:   modelResponses,
+	}
+
+	// 发送响应
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleOpenAIModel 处理OpenAI兼容的单个模型请求
+func (a *App) handleOpenAIModel(w http.ResponseWriter, r *http.Request) {
+	// 检查请求方法
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 检查API密钥（如果设置了）
+	if apiKey, ok := a.environmentVariables["OLLAMA_OPENAI_API_KEY"]; ok {
+		if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+			// 从请求头获取API密钥
+			authHeader := r.Header.Get("Authorization")
+			expectedAuth := "Bearer " + keyStr
+			if authHeader != expectedAuth {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+	}
+
+	// 提取模型ID
+	modelID := strings.TrimPrefix(r.URL.Path, "/v1/models/")
+	if modelID == "" {
+		http.Error(w, "Model ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// 构建模型响应
+	modelResp := OpenAIModelResponse{
+		ID:      modelID,
+		Object:  "model",
+		Created: time.Now().Unix(),
+		OwnedBy: "ollama",
+	}
+
+	// 发送响应
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(modelResp)
 }
