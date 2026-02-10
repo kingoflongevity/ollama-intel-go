@@ -129,10 +129,13 @@
                 v-model="environmentVariables.OLLAMA_OPENAI_PORT" 
                 :min="1024" 
                 :max="65535" 
-                :step="1"
+                :step="1" 
                 style="width: 120px"
               />
-              <div class="form-help">设置 OpenAI 兼容 API 的服务端口，默认 8080</div>
+              <div class="form-help">设置应用程序内置的 OpenAI 兼容 API 服务端口，默认 8080</div>
+              <div class="form-help" style="color: #67c23a;">
+                推荐使用: Ollama 内置 API (http://localhost:11434/v1)
+              </div>
             </el-form-item>
             <el-form-item label="API 调用地址" v-if="environmentVariables.OLLAMA_OPENAI_COMPATIBLE">
               <el-input 
@@ -147,7 +150,10 @@
                   </el-button>
                 </template>
               </el-input>
-              <div class="form-help">其他应用调用本地模型的 API 地址</div>
+              <div class="form-help">Ollama 内置的 OpenAI 兼容 API 地址，其他应用可以通过此地址调用本地模型</div>
+              <div class="form-help" style="color: #67c23a;">
+                此地址为 Ollama 服务默认提供的 OpenAI 兼容 API 端点
+              </div>
             </el-form-item>
           </el-form>
         </el-card>
@@ -408,8 +414,8 @@ const loadCurrentOllamaPath = async () => {
 
 // 计算属性：OpenAI API 调用地址
 const openaiApiUrl = computed(() => {
-  const port = environmentVariables.value.OLLAMA_OPENAI_PORT || 8080
-  return `http://localhost:${port}/v1`
+  // 使用Ollama默认的OpenAI兼容API端口11434
+  return `http://localhost:11434/v1`
 })
 
 // 复制 API URL 到剪贴板
