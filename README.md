@@ -31,23 +31,14 @@ Ollama 英特尔优化版是一个专为英特尔硬件优化的桌面应用解�
 
 ## 界面展示
 
-### 仪表盘
-![仪表盘](inter/QQ_1770693437865.png)
+应用提供现代化的玻璃态界面设计，带有霓虹效果，支持暗色/亮色主题切换，包括以下主要页面：
 
-### 聊天界面
-![聊天界面](inter/QQ_1770693554899.png)
-
-### 模型管理
-![模型管理](inter/QQ_1770693576157.png)
-
-### 在线模型
-![在线模型](inter/QQ_1770693587926.png)
-
-### 设置界面
-![设置界面](inter/QQ_1770693612827.png)
-
-### 设置详情
-![设置详情](inter/QQ_1770693621633.png)
+- **仪表盘**：实时监控系统状态、模型使用情况和服务状态
+- **聊天**：与本地 Ollama 模型进行对话，提供实时流式响应
+- **模型管理**：查看、拉取、删除本地模型
+- **在线模型**：浏览和搜索可用的在线模型，支持分页加载
+- **日志管理**：查看、过滤、导出应用日志
+- **设置**：配置服务参数、环境变量和英特尔硬件优化选项
 
 ## 系统要求
 
@@ -167,23 +158,14 @@ This version is specially optimized for Intel processors, Intel Arc GPU, and rel
 
 ## Interface Showcase
 
-### Dashboard
-![Dashboard](inter/QQ_1770693437865.png)
+The application features a modern glass morphism interface with neon effects, supporting dark/light theme switching, including the following main pages:
 
-### Chat Interface
-![Chat Interface](inter/QQ_1770693554899.png)
-
-### Model Management
-![Model Management](inter/QQ_1770693576157.png)
-
-### Online Models
-![Online Models](inter/QQ_1770693587926.png)
-
-### Settings Interface
-![Settings Interface](inter/QQ_1770693612827.png)
-
-### Settings Details
-![Settings Details](inter/QQ_1770693621633.png)
+- **Dashboard**: Real-time monitoring of system status, model usage, and service status
+- **Chat**: Conversations with local Ollama models, providing real-time streaming responses
+- **Model Management**: View, pull, and delete local models
+- **Online Models**: Browse and search available online models, supporting pagination
+- **Log Management**: View, filter, and export application logs
+- **Settings**: Configure service parameters, environment variables, and Intel hardware optimization options
 
 ## System Requirements
 

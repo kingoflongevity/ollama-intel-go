@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -145,6 +146,9 @@ func (a *App) startup(ctx context.Context) {
 	// 设置 Ollama 二进制文件路径
 	a.setOllamaPath()
 
+	// 加载配置文件
+	a.loadConfig()
+
 	// 初始化HTTP服务器，添加WebSocket路由
 	a.initHTTPServer()
 
@@ -248,6 +252,12 @@ func (a *App) detectGPUStatus() string {
 
 		// 尝试运行系统命令检测 GPU
 		cmd := exec.Command("powershell", "-Command", "Get-WmiObject Win32_VideoController | Select-Object Name")
+		// 隐藏命令窗口
+		if runtime.GOOS == "windows" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				HideWindow: true,
+			}
+		}
 		output, err := cmd.Output()
 		if err == nil {
 			outputStr := string(output)
@@ -269,6 +279,12 @@ func (a *App) getMemoryInfo() string {
 	if runtime.GOOS == "windows" {
 		// 使用 PowerShell 获取内存信息
 		cmd := exec.Command("powershell", "-Command", "Get-WmiObject Win32_ComputerSystem | Select-Object TotalPhysicalMemory")
+		// 隐藏命令窗口
+		if runtime.GOOS == "windows" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				HideWindow: true,
+			}
+		}
 		output, err := cmd.Output()
 		if err == nil {
 			outputStr := string(output)
@@ -299,6 +315,12 @@ func (a *App) getCPUInfo() string {
 	if runtime.GOOS == "windows" {
 		// 使用 PowerShell 获取 CPU 型号
 		cmd := exec.Command("powershell", "-Command", "Get-WmiObject Win32_Processor | Select-Object Name")
+		// 隐藏命令窗口
+		if runtime.GOOS == "windows" {
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				HideWindow: true,
+			}
+		}
 		output, err := cmd.Output()
 		if err == nil {
 			outputStr := string(output)
@@ -745,6 +767,86 @@ func (a *App) GetOllamaPath() map[string]interface{} {
 	}
 }
 
+// getConfigPath 获取配置文件路径
+func (a *App) getConfigPath() string {
+	var configDir string
+	
+	if runtime.GOOS == "windows" {
+		configDir = filepath.Join(os.Getenv("APPDATA"), "ollama-intel")
+	} else {
+		configDir = filepath.Join(os.Getenv("HOME"), ".config", "ollama-intel")
+	}
+	
+	// 确保配置目录存在
+	os.MkdirAll(configDir, 0755)
+	
+	return filepath.Join(configDir, "config.json")
+}
+
+// loadConfig 从文件加载配置
+func (a *App) loadConfig() {
+	configPath := a.getConfigPath()
+	
+	// 检查配置文件是否存在
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Println("loadConfig: 配置文件不存在，使用默认配置")
+		return
+	}
+	
+	// 读取配置文件
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Printf("loadConfig: 读取配置文件失败: %v\n", err)
+		return
+	}
+	
+	// 解析配置文件
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		log.Printf("loadConfig: 解析配置文件失败: %v\n", err)
+		return
+	}
+	
+	// 加载环境变量配置
+	if envVars, ok := config["environmentVariables"].(map[string]interface{}); ok {
+		a.environmentVariables = envVars
+		log.Println("loadConfig: 环境变量配置已加载")
+	}
+	
+	// 加载Ollama路径配置
+	if ollamaPath, ok := config["ollamaPath"].(string); ok && ollamaPath != "" {
+		a.ollamaPath = ollamaPath
+		log.Printf("loadConfig: Ollama路径已加载: %s\n", a.ollamaPath)
+	}
+}
+
+// saveConfig 保存配置到文件
+func (a *App) saveConfig() {
+	configPath := a.getConfigPath()
+	
+	// 构建配置数据
+	config := map[string]interface{}{
+		"environmentVariables": a.environmentVariables,
+		"ollamaPath":           a.ollamaPath,
+		"lastSaved":            time.Now().Format(time.RFC3339),
+	}
+	
+	// 序列化配置数据
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		log.Printf("saveConfig: 序列化配置失败: %v\n", err)
+		return
+	}
+	
+	// 写入配置文件
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		log.Printf("saveConfig: 写入配置文件失败: %v\n", err)
+		return
+	}
+	
+	log.Printf("saveConfig: 配置已保存到 %s\n", configPath)
+}
+
 // SaveEnvironmentVariables 保存环境变量配置
 func (a *App) SaveEnvironmentVariables(variables map[string]interface{}) map[string]interface{} {
 	log.Printf("SaveEnvironmentVariables: 保存环境变量配置: %+v\n", variables)
@@ -766,7 +868,8 @@ func (a *App) SaveEnvironmentVariables(variables map[string]interface{}) map[str
 		}
 	}
 
-	// 可以在这里添加持久化存储逻辑，例如保存到文件
+	// 保存配置到文件
+	a.saveConfig()
 
 	log.Println("SaveEnvironmentVariables: 环境变量配置已保存")
 
@@ -1507,8 +1610,17 @@ func (a *App) startOllamaService() error {
 
 	// 启动新的 Ollama 服务进程
 	cmd := exec.Command(a.ollamaPath, "serve")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	// 在 Windows 上隐藏命令窗口
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow: true,
+		}
+	}
+
+	// 不将输出重定向到控制台，而是通过日志记录器处理
+	cmd.Stdout = a.logger
+	cmd.Stderr = a.logger
 
 	// 应用环境变量
 	env := os.Environ()
@@ -1523,6 +1635,8 @@ func (a *App) startOllamaService() error {
 			env = append(env, fmt.Sprintf("%s=%d", key, int(intValue)))
 		}
 	}
+	
+	// 确保 OLLAMA_DEBUG 为 false，避免服务以 debug 模式运行
 	cmd.Env = env
 	log.Printf("startOllamaService: 应用环境变量: %+v\n", a.environmentVariables)
 
@@ -1548,6 +1662,13 @@ func (a *App) startOllamaService() error {
 func (a *App) runOllamaCommand(args ...string) (string, error) {
 	log.Printf("runOllamaCommand: 路径=%s, 参数=%v\n", a.ollamaPath, args)
 	cmd := exec.Command(a.ollamaPath, args...)
+
+	// 隐藏命令窗口
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow: true,
+		}
+	}
 
 	// 应用环境变量
 	env := os.Environ()
@@ -1623,6 +1744,10 @@ func (a *App) killProcessOnPort(port int) bool {
 	if runtime.GOOS == "windows" {
 		// Windows: 使用 netstat 和 taskkill
 		cmd := exec.Command("cmd", "/C", fmt.Sprintf("netstat -ano | findstr :%d", port))
+		// 隐藏命令窗口
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow: true,
+		}
 		output, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
@@ -1633,6 +1758,10 @@ func (a *App) killProcessOnPort(port int) bool {
 					pid := parts[len(parts)-1]
 					if pid != "" && pid != "0" {
 						killCmd := exec.Command("taskkill", "/F", "/PID", pid)
+						// 隐藏命令窗口
+						killCmd.SysProcAttr = &syscall.SysProcAttr{
+							HideWindow: true,
+						}
 						if err := killCmd.Run(); err == nil {
 							time.Sleep(100 * time.Millisecond) // 等待进程终止
 							return true
