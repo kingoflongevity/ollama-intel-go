@@ -427,12 +427,17 @@ body.dark-theme .log-toolbar {
 }
 
 body.dark-theme .log-content {
-  background: #1e1e1e;
-  border-color: #4a4a4a;
+  background: #1e1e1e !important;
+  border-color: #4a4a4a !important;
+}
+
+body.dark-theme .log-entry {
+  background-color: #1e1e1e !important;
+  color: #e4e6eb !important;
 }
 
 body.dark-theme .log-entry:hover {
-  background-color: #2d2d2d;
+  background-color: #2d2d2d !important;
 }
 
 body.dark-theme .log-time {
@@ -445,5 +450,28 @@ body.dark-theme .copy-icon {
 
 body.dark-theme .copy-icon:hover {
   color: #409eff;
+}
+
+/* 暗色主题 - Element Plus 组件样式 */
+body.dark-theme :deep(.el-empty) {
+  --el-empty-fill-color: #1e1e1e;
+  --el-empty-text-color: #a0aec0;
+}
+
+body.dark-theme :deep(.el-empty__description) {
+  color: #a0aec0 !important;
+}
+
+body.dark-theme :deep(.el-tag) {
+  --el-tag-bg-color: #2d2d2d;
+  --el-tag-border-color: #4a4a4a;
+  --el-tag-text-color: #e4e6eb;
+}
+
+body.dark-theme :deep(.el-input__wrapper) {
+  --el-input-bg-color: #2d2d2d;
+  --el-input-border-color: #4a4a4a;
+  --el-input-text-color: #e4e6eb;
+  --el-input-placeholder-color: #a0aec0;
 }
 </style>

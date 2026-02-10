@@ -29,6 +29,26 @@ Ollama 英特尔优化版是一个专为英特尔硬件优化的桌面应用解�
 - **响应式布局**：适配不同屏幕尺寸
 - **组件化架构**：模块化设计，易于维护和扩展
 
+## 界面展示
+
+### 仪表盘
+![仪表盘](inter/QQ_1770693437865.png)
+
+### 聊天界面
+![聊天界面](inter/QQ_1770693554899.png)
+
+### 模型管理
+![模型管理](inter/QQ_1770693576157.png)
+
+### 在线模型
+![在线模型](inter/QQ_1770693587926.png)
+
+### 设置界面
+![设置界面](inter/QQ_1770693612827.png)
+
+### 设置详情
+![设置详情](inter/QQ_1770693621633.png)
+
 ## 系统要求
 
 ### 硬件要求
@@ -144,6 +164,26 @@ This version is specially optimized for Intel processors, Intel Arc GPU, and rel
 - **Dark/Light Theme**：Support one-click theme switching
 - **Responsive Layout**：Adapt to different screen sizes
 - **Component-based Architecture**：Modular design for easy maintenance and extension
+
+## Interface Showcase
+
+### Dashboard
+![Dashboard](inter/QQ_1770693437865.png)
+
+### Chat Interface
+![Chat Interface](inter/QQ_1770693554899.png)
+
+### Model Management
+![Model Management](inter/QQ_1770693576157.png)
+
+### Online Models
+![Online Models](inter/QQ_1770693587926.png)
+
+### Settings Interface
+![Settings Interface](inter/QQ_1770693612827.png)
+
+### Settings Details
+![Settings Details](inter/QQ_1770693621633.png)
 
 ## System Requirements
 

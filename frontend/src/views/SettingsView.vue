@@ -102,9 +102,52 @@
               <el-switch v-model="environmentVariables.OLLAMA_INTEL_GPU" />
               <div class="form-help">启用 Intel GPU 加速</div>
             </el-form-item>
+            <el-form-item label="Ollama 执行程序路径">
+              <el-input 
+                v-model="environmentVariables.OLLAMA_EXECUTABLE_PATH" 
+                placeholder="设置 Ollama 执行程序的路径，例如: C:\\ollama\\ollama.exe"
+              />
+              <div class="form-help">设置 Ollama 执行程序的路径，让用户自行下载放置。留空则使用默认路径</div>
+              <div class="form-help" style="color: #67c23a;">
+                当前默认路径: {{ currentOllamaPath }}
+              </div>
+            </el-form-item>
             <el-form-item label="调试模式">
               <el-switch v-model="environmentVariables.OLLAMA_DEBUG" />
               <div class="form-help">启用 Ollama 调试日志</div>
+            </el-form-item>
+            <el-form-item label="OpenAI 兼容 API">
+              <el-switch v-model="environmentVariables.OLLAMA_OPENAI_COMPATIBLE" />
+              <div class="form-help">启用 OpenAI 兼容的 API 接口，允许其他应用像调用 OpenAI 一样调用本地模型</div>
+            </el-form-item>
+            <el-form-item label="API 密钥" v-if="environmentVariables.OLLAMA_OPENAI_COMPATIBLE">
+              <el-input v-model="environmentVariables.OLLAMA_OPENAI_API_KEY" placeholder="设置 API 密钥（可选）" />
+              <div class="form-help">设置用于验证 API 调用的密钥，留空则不需要验证</div>
+            </el-form-item>
+            <el-form-item label="API 端口" v-if="environmentVariables.OLLAMA_OPENAI_COMPATIBLE">
+              <el-input-number 
+                v-model="environmentVariables.OLLAMA_OPENAI_PORT" 
+                :min="1024" 
+                :max="65535" 
+                :step="1"
+                style="width: 120px"
+              />
+              <div class="form-help">设置 OpenAI 兼容 API 的服务端口，默认 8080</div>
+            </el-form-item>
+            <el-form-item label="API 调用地址" v-if="environmentVariables.OLLAMA_OPENAI_COMPATIBLE">
+              <el-input 
+                :value="openaiApiUrl" 
+                readonly 
+                style="width: 400px"
+              >
+                <template #append>
+                  <el-button @click="copyApiUrl">
+                    <el-icon><CopyDocument /></el-icon>
+                    复制
+                  </el-button>
+                </template>
+              </el-input>
+              <div class="form-help">其他应用调用本地模型的 API 地址</div>
             </el-form-item>
           </el-form>
         </el-card>
@@ -199,8 +242,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { GetServiceStatus, StartService, StopService, GetEnvironmentInfo, GetIntelOptimizationInfo, GetEnvironmentVariables, SaveEnvironmentVariables } from '../../wailsjs/go/main/App'
+import { ref, onMounted, computed } from 'vue'
+import { GetServiceStatus, StartService, StopService, GetEnvironmentInfo, GetIntelOptimizationInfo, GetEnvironmentVariables, SaveEnvironmentVariables, GetOllamaPath } from '../../wailsjs/go/main/App'
+import { CopyDocument } from '@element-plus/icons-vue'
 
 // 响应式数据
 const activeTab = ref('general')
@@ -230,8 +274,13 @@ const environmentVariables = ref({
   OLLAMA_NUM_CTX: 2048,
   ONEAPI_DEVICE_SELECTOR: '',
   OLLAMA_INTEL_GPU: true,
-  OLLAMA_DEBUG: false
+  OLLAMA_EXECUTABLE_PATH: '',
+  OLLAMA_DEBUG: false,
+  OLLAMA_OPENAI_COMPATIBLE: false,
+  OLLAMA_OPENAI_API_KEY: '',
+  OLLAMA_OPENAI_PORT: 8080
 })
+const currentOllamaPath = ref('检测中...')
 
 // 切换主题
 const toggleTheme = (val) => {
@@ -318,8 +367,12 @@ const checkForUpdates = () => {
 // 保存环境变量
 const saveEnvironmentVariables = async () => {
   try {
-    await SaveEnvironmentVariables(environmentVariables.value)
+    const result = await SaveEnvironmentVariables(environmentVariables.value)
     ElMessage.success('环境变量配置已保存')
+    // 更新显示的Ollama路径
+    if (result && result.path) {
+      currentOllamaPath.value = result.path
+    }
     // 提示需要重启服务
     ElMessage.warning('配置已保存，需要重启服务才能生效')
   } catch (error) {
@@ -337,6 +390,36 @@ const loadEnvironmentVariables = async () => {
     }
   } catch (error) {
     console.error('加载环境变量失败:', error)
+  }
+}
+
+// 加载当前的Ollama路径
+const loadCurrentOllamaPath = async () => {
+  try {
+    const result = await GetOllamaPath()
+    if (result && result.path) {
+      currentOllamaPath.value = result.path
+    }
+  } catch (error) {
+    console.error('加载 Ollama 路径失败:', error)
+    currentOllamaPath.value = '无法获取路径'
+  }
+}
+
+// 计算属性：OpenAI API 调用地址
+const openaiApiUrl = computed(() => {
+  const port = environmentVariables.value.OLLAMA_OPENAI_PORT || 8080
+  return `http://localhost:${port}/v1`
+})
+
+// 复制 API URL 到剪贴板
+const copyApiUrl = async () => {
+  try {
+    await navigator.clipboard.writeText(openaiApiUrl.value)
+    ElMessage.success('API 地址已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+    ElMessage.error('复制失败')
   }
 }
 
@@ -363,6 +446,9 @@ onMounted(() => {
   
   // 加载环境变量配置
   loadEnvironmentVariables()
+  
+  // 加载当前的Ollama路径
+  loadCurrentOllamaPath()
 })
 </script>
 
@@ -488,5 +574,131 @@ body.dark-theme .description {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* 暗色主题 - Element Plus 组件样式 */
+/* 全局暗色主题变量 */
+body.dark-theme {
+  --el-bg-color: #1e1e1e;
+  --el-bg-color-overlay: #2d2d2d;
+  --el-text-color-primary: #e4e6eb;
+  --el-text-color-regular: #c0c4cc;
+  --el-text-color-secondary: #a0aec0;
+  --el-border-color: #4a4a4a;
+  --el-border-color-light: #3a3a3a;
+  --el-border-color-lighter: #2d2d2d;
+  --el-border-color-extra-light: #252525;
+  --el-fill-color: #2d2d2d;
+  --el-fill-color-light: #3a3a3a;
+  --el-fill-color-lighter: #4a4a4a;
+  --el-fill-color-blank: #1e1e1e;
+  --el-box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.2);
+  --el-box-shadow-light: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+  --el-box-shadow-lighter: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  --el-box-shadow-dark: 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 卡片组件 */
+body.dark-theme :deep(.el-card) {
+  background-color: #1e1e1e !important;
+  border-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-card__header) {
+  background-color: #2d2d2d !important;
+  border-bottom-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-card__body) {
+  background-color: #1e1e1e !important;
+}
+
+/* 标签页组件 */
+body.dark-theme :deep(.el-tabs) {
+  background-color: #1e1e1e !important;
+}
+
+body.dark-theme :deep(.el-tabs__header) {
+  background-color: #1e1e1e !important;
+  border-bottom-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-tabs__nav) {
+  background-color: #1e1e1e !important;
+}
+
+body.dark-theme :deep(.el-tabs__item) {
+  color: #a0aec0 !important;
+}
+
+body.dark-theme :deep(.el-tabs__item.is-active) {
+  color: #409eff !important;
+}
+
+body.dark-theme :deep(.el-tabs__content) {
+  background-color: #1e1e1e !important;
+}
+
+body.dark-theme :deep(.el-tab-pane) {
+  background-color: #1e1e1e !important;
+}
+
+/* 表单组件 */
+body.dark-theme :deep(.el-form-item__label) {
+  color: #e4e6eb !important;
+}
+
+body.dark-theme :deep(.el-input__wrapper) {
+  background-color: #2d2d2d !important;
+  border-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-input__inner) {
+  color: #e4e6eb !important;
+}
+
+body.dark-theme :deep(.el-input__placeholder) {
+  color: #a0aec0 !important;
+}
+
+/* 选择器组件 */
+body.dark-theme :deep(.el-select__wrapper) {
+  background-color: #2d2d2d !important;
+  border-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-select__placeholder) {
+  color: #a0aec0 !important;
+}
+
+body.dark-theme :deep(.el-select__caret) {
+  color: #a0aec0 !important;
+}
+
+/* 开关组件 */
+body.dark-theme :deep(.el-switch__core) {
+  background-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-switch.is-checked .el-switch__core) {
+  background-color: #409eff !important;
+}
+
+/* 数字输入框组件 */
+body.dark-theme :deep(.el-input-number) {
+  background-color: #2d2d2d !important;
+  border-color: #4a4a4a !important;
+}
+
+body.dark-theme :deep(.el-input-number__decrease),
+body.dark-theme :deep(.el-input-number__increase) {
+  background-color: #2d2d2d !important;
+  border-color: #4a4a4a !important;
+  color: #e4e6eb !important;
+}
+
+body.dark-theme :deep(.el-input-number__decrease:hover),
+body.dark-theme :deep(.el-input-number__increase:hover) {
+  background-color: #3a3a3a !important;
 }
 </style>

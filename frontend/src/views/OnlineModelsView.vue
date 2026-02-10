@@ -435,27 +435,42 @@ body.dark-theme .no-more-container {
 }
 
 /* 暗色主题 - 表格样式 */
+body.dark-theme .models-table {
+  --el-table-bg-color: #1e1e1e;
+  --el-table-text-color: #e4e6eb;
+  --el-table-header-bg-color: #2d2d2d;
+  --el-table-header-text-color: #e4e6eb;
+  --el-table-border-color: #3c3c3c;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
+}
+
 body.dark-theme .models-table :deep(.el-table) {
-  background-color: #1e1e1e;
-  color: #e4e6eb;
+  background-color: #1e1e1e !important;
+  color: #e4e6eb !important;
 }
 
 body.dark-theme .models-table :deep(.el-table__header-wrapper th) {
-  background-color: #2d2d2d;
-  color: #e4e6eb;
-  border-bottom-color: #3c3c3c;
+  background-color: #2d2d2d !important;
+  color: #e4e6eb !important;
+  border-bottom-color: #3c3c3c !important;
+}
+
+body.dark-theme .models-table :deep(.el-table__body-wrapper) {
+  background-color: #1e1e1e !important;
 }
 
 body.dark-theme .models-table :deep(.el-table__row) {
-  border-bottom-color: #3c3c3c;
+  background-color: #1e1e1e !important;
+  color: #e4e6eb !important;
+  border-bottom-color: #3c3c3c !important;
 }
 
 body.dark-theme .models-table :deep(.el-table__row:hover) {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.05) !important;
 }
 
 body.dark-theme .models-table :deep(.el-table__empty-block) {
-  background-color: #1e1e1e;
-  color: #a0aec0;
+  background-color: #1e1e1e !important;
+  color: #a0aec0 !important;
 }
 </style>

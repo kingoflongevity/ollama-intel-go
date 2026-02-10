@@ -737,12 +737,34 @@ func (a *App) GetEnvironmentVariables() map[string]interface{} {
 	return a.environmentVariables
 }
 
+// GetOllamaPath 获取当前的Ollama执行程序路径
+func (a *App) GetOllamaPath() map[string]interface{} {
+	log.Printf("GetOllamaPath: 当前路径: %s\n", a.ollamaPath)
+	return map[string]interface{}{
+		"path": a.ollamaPath,
+	}
+}
+
 // SaveEnvironmentVariables 保存环境变量配置
 func (a *App) SaveEnvironmentVariables(variables map[string]interface{}) map[string]interface{} {
 	log.Printf("SaveEnvironmentVariables: 保存环境变量配置: %+v\n", variables)
 
 	// 保存环境变量
 	a.environmentVariables = variables
+
+	// 检查是否设置了OLLAMA_EXECUTABLE_PATH
+	if executablePath, ok := variables["OLLAMA_EXECUTABLE_PATH"]; ok {
+		if pathStr, ok := executablePath.(string); ok {
+			if pathStr != "" {
+				a.ollamaPath = pathStr
+				log.Printf("SaveEnvironmentVariables: 更新 Ollama 执行程序路径为: %s\n", a.ollamaPath)
+			} else {
+				// 如果用户清空了路径，重置为默认路径
+				a.setOllamaPath()
+				log.Printf("SaveEnvironmentVariables: 重置为默认 Ollama 执行程序路径: %s\n", a.ollamaPath)
+			}
+		}
+	}
 
 	// 可以在这里添加持久化存储逻辑，例如保存到文件
 
@@ -751,6 +773,7 @@ func (a *App) SaveEnvironmentVariables(variables map[string]interface{}) map[str
 	return map[string]interface{}{
 		"message":   "环境变量配置已保存",
 		"variables": variables,
+		"path":      a.ollamaPath, // 返回当前路径
 	}
 }
 

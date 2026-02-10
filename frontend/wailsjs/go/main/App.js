@@ -26,6 +26,10 @@ export function GetIntelOptimizationInfo() {
   return window['go']['main']['App']['GetIntelOptimizationInfo']();
 }
 
+export function GetOllamaPath() {
+  return window['go']['main']['App']['GetOllamaPath']();
+}
+
 export function GetOnlineModels(arg1, arg2) {
   return window['go']['main']['App']['GetOnlineModels'](arg1, arg2);
 }
