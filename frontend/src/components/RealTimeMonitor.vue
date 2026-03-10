@@ -351,8 +351,10 @@ onUnmounted(() => {
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 body.dark-theme .realtime-monitor-container {
@@ -364,9 +366,10 @@ body.dark-theme .realtime-monitor-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
 
 body.dark-theme .monitor-header {
@@ -376,7 +379,7 @@ body.dark-theme .monitor-header {
 .monitor-header h3 {
   margin: 0;
   color: #303133;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 body.dark-theme .monitor-header h3 {
@@ -387,7 +390,7 @@ body.dark-theme .monitor-header h3 {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: #606266;
 }
 
@@ -415,17 +418,19 @@ body.dark-theme .monitor-status {
 .monitor-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 12px;
   flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .monitor-card {
   background: #f8f9fa;
   border-radius: 8px;
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 body.dark-theme .monitor-card {
@@ -438,8 +443,8 @@ body.dark-theme .monitor-card {
   gap: 8px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 12px;
-  font-size: 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
 }
 
 body.dark-theme .card-header {
@@ -460,10 +465,10 @@ body.dark-theme .card-header {
 }
 
 .metric-value {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: #303133;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 body.dark-theme .metric-value {
@@ -471,9 +476,9 @@ body.dark-theme .metric-value {
 }
 
 .metric-sub {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 body.dark-theme .metric-sub {
@@ -481,8 +486,8 @@ body.dark-theme .metric-sub {
 }
 
 .metric-chart {
-  width: 70px;
-  height: 70px;
+  width: 60px;
+  height: 60px;
 }
 
 .progress-ring {
@@ -506,8 +511,8 @@ body.dark-theme .progress-ring-bg {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid #e4e7ed;
 }
 
@@ -519,7 +524,7 @@ body.dark-theme .card-footer {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: #909399;
 }
 
@@ -539,7 +544,7 @@ body.dark-theme .card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 6px 0;
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -552,7 +557,7 @@ body.dark-theme .service-item {
 }
 
 .service-name {
-  font-size: 13px;
+  font-size: 12px;
   color: #606266;
 }
 
@@ -561,7 +566,7 @@ body.dark-theme .service-name {
 }
 
 .last-update {
-  font-size: 12px;
+  font-size: 11px;
   color: #909399;
 }
 
@@ -571,14 +576,19 @@ body.dark-theme .last-update {
 
 .monitor-controls {
   display: flex;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 16px;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid #e4e7ed;
+  flex-shrink: 0;
 }
 
 body.dark-theme .monitor-controls {
   border-top-color: #3c3c3c;
+}
+
+.monitor-controls .el-button {
+  font-size: 13px;
 }
 
 @media (max-width: 768px) {

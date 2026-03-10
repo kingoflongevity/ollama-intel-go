@@ -204,54 +204,57 @@ onUnmounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
+  gap: 20px;
   height: 100%;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .status-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-lg);
+  gap: 16px;
+  flex-shrink: 0;
 }
 
 .main-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
-  gap: var(--spacing-xl);
+  gap: 20px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .left-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xl);
-  flex: 1;
+  gap: 20px;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .right-panel {
-  height: 100%;
-  min-height: 500px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 功能卡片 */
 .feature-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-lg);
+  gap: 16px;
+  flex-shrink: 0;
 }
 
 .feature-card {
   background: var(--bg-elevated);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-xl);
+  padding: 20px;
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
+  gap: 16px;
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: all 0.3s ease;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
 }
@@ -290,15 +293,15 @@ onUnmounted(() => {
 }
 
 .feature-info h4 {
-  margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
 .feature-info p {
   margin: 0;
-  font-size: var(--font-size-sm);
+  font-size: 13px;
   color: var(--text-secondary);
 }
 
@@ -309,7 +312,6 @@ onUnmounted(() => {
   }
   
   .right-panel {
-    height: auto;
     min-height: 400px;
   }
 }

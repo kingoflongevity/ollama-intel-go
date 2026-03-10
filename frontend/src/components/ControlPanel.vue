@@ -13,7 +13,9 @@
 import { StartService, StopService } from '../../wailsjs/go/main/App'
 import { ElMessage } from 'element-plus'
 
-// 方法
+/**
+ * 启动服务
+ */
 const startService = async () => {
   try {
     await StartService()
@@ -24,6 +26,9 @@ const startService = async () => {
   }
 }
 
+/**
+ * 停止服务
+ */
 const stopService = async () => {
   try {
     await StopService()
@@ -36,44 +41,45 @@ const stopService = async () => {
 </script>
 
 <style scoped>
-/* 通用卡片样式 */
 .card {
   background: rgba(18, 22, 32, 0.75);
   backdrop-filter: blur(20px);
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   border: 1px solid var(--glass-border);
   box-shadow: 0 0 40px rgba(76,130,255,0.08);
+  flex-shrink: 0;
 }
 
 h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .actions {
-  margin-top: 20px;
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .btn {
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 10px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   font-weight: 500;
+  font-size: 13px;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
   transition: all 0.3s ease;
 }
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .primary {
@@ -82,26 +88,25 @@ h3 {
 }
 
 .danger {
-  background: linear-gradient(135deg,#FF4D4F,#FF7875);
+  background: linear-gradient(135deg, #FF4D4F, #FF7875);
   color: #fff;
 }
 
 .ghost {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
 }
 
-/* 浅色主题特殊样式 */
 body.light-theme .card {
   background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 0 40px rgba(76,130,255,0.12);
+  box-shadow: 0 0 40px rgba(76, 130, 255, 0.12);
 }
 
 body.light-theme .ghost {
-  background: rgba(0,0,0,0.06);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 body.light-theme .btn:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>

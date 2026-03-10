@@ -19,34 +19,37 @@ defineProps({
 </script>
 
 <style scoped>
-/* 通用卡片样式 */
 .card {
   background: rgba(18, 22, 32, 0.75);
   backdrop-filter: blur(20px);
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   border: 1px solid var(--glass-border);
   box-shadow: 0 0 40px rgba(76,130,255,0.08);
+  flex-shrink: 0;
 }
 
 h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
 .activity {
-  margin-top: 16px;
+  margin-top: 12px;
   list-style: none;
   padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .activity li {
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   opacity: .8;
+  font-size: 13px;
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
   color: var(--text-primary);
 }
@@ -55,7 +58,6 @@ h3 {
   border-bottom: none;
 }
 
-/* 浅色主题特殊样式 */
 body.light-theme .card {
   background: rgba(255, 255, 255, 0.75);
   box-shadow: 0 0 40px rgba(76,130,255,0.12);
