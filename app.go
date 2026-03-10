@@ -515,23 +515,74 @@ func (a *App) normalizeModelName(name string) string {
 		return name
 	}
 	
+	// 常见的模型名称映射（纠正拼写错误）
+	modelNameCorrections := map[string]string{
+		"llama4":     "llama3.3",
+		"llama3.3":   "llama3.3",
+		"llama3.2":   "llama3.2",
+		"llama3.1":   "llama3.1",
+		"llama3":     "llama3",
+		"llama2":     "llama2",
+		"gemma3":     "gemma3",
+		"gemma2":     "gemma2",
+		"gemma":      "gemma",
+		"mistral":    "mistral",
+		"mixtral":    "mixtral",
+		"qwen3.5":    "qwen3.5",
+		"qwen3":      "qwen3",
+		"qwen2.5":    "qwen2.5",
+		"qwen2":      "qwen2",
+		"phi4":       "phi4",
+		"phi3":       "phi3",
+		"phi-3":      "phi3",
+		"codellama":  "codellama",
+		"code-llama": "codellama",
+		"deepseek-coder": "deepseek-coder",
+		"deepseek":   "deepseek-r1",
+		"deepseek-r1": "deepseek-r1",
+		"deepseek-v3": "deepseek-v3",
+		"llava":      "llava",
+		"starling-lm": "starling-lm",
+		"command-r":  "command-r",
+		"cohere":     "command-r",
+	}
+	
+	// 检查是否需要纠正模型名称
+	lowerName := strings.ToLower(name)
+	if corrected, ok := modelNameCorrections[lowerName]; ok {
+		name = corrected
+	}
+	
 	// 对于常见的模型，添加默认tag
-	// 优先使用latest，因为它是默认的
 	defaultTags := map[string]string{
+		"llama3.3":     "latest",
+		"llama3.2":     "latest",
+		"llama3.1":     "latest",
 		"llama3":       "latest",
 		"llama2":       "latest",
-		"mistral":      "latest",
+		"gemma3":       "latest",
+		"gemma2":       "latest",
 		"gemma":        "latest",
+		"mistral":      "latest",
+		"mixtral":      "latest",
+		"qwen3.5":      "latest",
+		"qwen3":        "latest",
+		"qwen2.5":      "latest",
 		"qwen2":        "latest",
+		"phi4":         "latest",
 		"phi3":         "latest",
 		"codellama":    "latest",
 		"deepseek-coder": "latest",
+		"deepseek-r1":  "latest",
+		"deepseek-v3":  "latest",
 		"llava":        "latest",
 		"starling-lm":  "latest",
+		"command-r":    "latest",
 	}
 	
 	// 检查是否有预定义的默认tag
-	if tag, ok := defaultTags[name]; ok {
+	lowerName = strings.ToLower(name)
+	if tag, ok := defaultTags[lowerName]; ok {
 		return fmt.Sprintf("%s:%s", name, tag)
 	}
 	
@@ -703,7 +754,7 @@ func (a *App) parsePullError(line string) string {
 	
 	// 检测各种错误类型
 	if strings.Contains(line, "412") || strings.Contains(lineLower, "precondition failed") {
-		return "模型拉取失败 (412): 模型不存在或模型名称格式不正确。请检查模型名称是否正确，例如: llama3:8b 或 qwen2:7b"
+		return "模型拉取失败 (412): 可能原因：1) 模型名称拼写错误；2) 网络连接问题；3) Ollama服务版本过旧。建议：检查模型名称、更新Ollama版本、或尝试使用镜像源(在设置中配置OLLAMA_MODEL_SOURCE=modelscope)"
 	}
 	if strings.Contains(lineLower, "not found") || strings.Contains(lineLower, "404") {
 		return "模型不存在: 请检查模型名称是否正确，可以在在线模型页面查看可用模型"
