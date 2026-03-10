@@ -1,6 +1,6 @@
 <template>
-  <div class="online-models-container">
-    <div class="models-header">
+  <div class="page-container">
+    <div class="page-header">
       <h2>在线模型</h2>
       <div class="header-actions">
         <el-input
@@ -10,6 +10,7 @@
           style="width: 250px;"
           clearable
           @input="handleSearchDebounced"
+          class="unified-input"
         />
         <el-select
           v-model="filterType"
@@ -57,28 +58,13 @@
     <!-- 筛选标签 -->
     <div class="filter-tags" v-if="hasActiveFilters">
       <span class="filter-label">当前筛选:</span>
-      <el-tag
-        v-if="searchQuery"
-        closable
-        @close="clearSearch"
-        type="info"
-      >
+      <el-tag v-if="searchQuery" closable @close="clearSearch" type="info" class="unified-tag">
         搜索: {{ searchQuery }}
       </el-tag>
-      <el-tag
-        v-if="filterType"
-        closable
-        @close="filterType = ''"
-        type="primary"
-      >
+      <el-tag v-if="filterType" closable @close="filterType = ''" type="primary" class="unified-tag">
         类型: {{ getTypeLabel(filterType) }}
       </el-tag>
-      <el-tag
-        v-if="filterSize"
-        closable
-        @close="filterSize = ''"
-        type="success"
-      >
+      <el-tag v-if="filterSize" closable @close="filterSize = ''" type="success" class="unified-tag">
         规模: {{ getSizeLabel(filterSize) }}
       </el-tag>
       <el-button link type="primary" @click="clearAllFilters">
@@ -89,7 +75,7 @@
     <el-table
       :data="filteredAndSortedModels"
       v-loading="loading"
-      class="models-table"
+      class="unified-table"
       row-key="name"
     >
       <el-table-column prop="name" label="模型名称" width="200" sortable>
@@ -105,13 +91,13 @@
       
       <el-table-column prop="size" label="大小" width="100" sortable>
         <template #default="{ row }">
-          <el-tag size="small" type="info">{{ row.size }}</el-tag>
+          <el-tag size="small" type="info" class="unified-tag">{{ row.size }}</el-tag>
         </template>
       </el-table-column>
       
       <el-table-column label="参数规模" width="120" sortable>
         <template #default="{ row }">
-          <el-tag size="small" :type="getParamSizeType(row.details?.parameter_size)">
+          <el-tag size="small" :type="getParamSizeType(row.details?.parameter_size)" class="unified-tag">
             {{ row.details?.parameter_size || '-' }}
           </el-tag>
         </template>
@@ -119,7 +105,7 @@
 
       <el-table-column label="类型" width="100">
         <template #default="{ row }">
-          <el-tag size="small" :type="getModelTypeTag(row)">
+          <el-tag size="small" :type="getModelTypeTag(row)" class="unified-tag">
             {{ getModelTypeLabel(row) }}
           </el-tag>
         </template>
@@ -127,7 +113,7 @@
       
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" type="primary" @click="pullModel(row)">
+          <el-button size="small" type="primary" @click="pullModel(row)" class="unified-button">
             <el-icon><Download /></el-icon>
             拉取
           </el-button>
@@ -141,7 +127,7 @@
         type="primary" 
         @click="loadMoreModels" 
         :loading="loading"
-        class="load-more-button"
+        class="load-more-button unified-button"
       >
         <el-icon><Refresh /></el-icon>
         获取更多
@@ -159,6 +145,7 @@
       width="600px"
       :close-on-click-modal="!pullLoading"
       :close-on-press-escape="!pullLoading"
+      class="unified-dialog"
     >
       <template v-if="!pullLoading && selectedModel">
         <el-descriptions :column="1" border>
@@ -196,24 +183,24 @@
               {{ pullCurrentTask }}
             </el-descriptions-item>
             <el-descriptions-item label="错误信息" v-if="pullError">
-              <el-tag type="danger" effect="dark">{{ pullError }}</el-tag>
+              <el-tag type="danger" effect="dark" class="unified-tag">{{ pullError }}</el-tag>
             </el-descriptions-item>
           </el-descriptions>
         </div>
       </template>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="cancelPull" :disabled="!pullLoading">
+          <el-button @click="cancelPull" :disabled="!pullLoading" class="unified-button">
             取消拉取
           </el-button>
-          <el-button v-if="!pullLoading" @click="detailDialogVisible = false">关闭</el-button>
-          <el-button type="primary" v-if="!pullLoading" @click="confirmPullModel(selectedModel.name)">
+          <el-button v-if="!pullLoading" @click="detailDialogVisible = false" class="unified-button">关闭</el-button>
+          <el-button type="primary" v-if="!pullLoading" @click="confirmPullModel(selectedModel.name)" class="unified-button">
             确认拉取
           </el-button>
-          <el-button type="success" v-else-if="pullStatus === 'success'" @click="detailDialogVisible = false">
+          <el-button type="success" v-else-if="pullStatus === 'success'" @click="detailDialogVisible = false" class="unified-button">
             完成
           </el-button>
-          <el-button type="danger" v-else-if="pullStatus === 'exception'" @click="detailDialogVisible = false">
+          <el-button type="danger" v-else-if="pullStatus === 'exception'" @click="detailDialogVisible = false" class="unified-button">
             关闭
           </el-button>
         </span>
@@ -270,7 +257,7 @@ const parseParamSize = (sizeStr) => {
   const match = sizeStr.match(/(\d+(?:\.\d+)?)/i)
   if (!match) return 0
   const num = parseFloat(match[1])
-  if (sizeStr.toLowerCase().includes('m')) return num / 1000 // M -> B
+  if (sizeStr.toLowerCase().includes('m')) return num / 1000
   return num
 }
 
@@ -393,12 +380,10 @@ const getSizeLabel = (size) => {
 const filteredAndSortedModels = computed(() => {
   let result = [...onlineModels.value]
   
-  // 按类型筛选
   if (filterType.value) {
     result = result.filter(model => getModelType(model) === filterType.value)
   }
   
-  // 按参数规模筛选
   if (filterSize.value) {
     result = result.filter(model => {
       const category = getParamSizeCategory(model.details?.parameter_size)
@@ -406,7 +391,6 @@ const filteredAndSortedModels = computed(() => {
     })
   }
   
-  // 排序
   switch (sortBy.value) {
     case 'name_asc':
       result.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -427,7 +411,6 @@ const filteredAndSortedModels = computed(() => {
       result.sort((a, b) => parseParamSize(b.details?.parameter_size) - parseParamSize(a.details?.parameter_size))
       break
     default:
-      // 默认排序保持原顺序
       break
   }
   
@@ -473,7 +456,6 @@ const performSearch = async () => {
  */
 const applyFilters = () => {
   // 筛选是在前端进行的，不需要重新请求数据
-  // 这里可以添加额外的逻辑，如统计筛选结果数量等
 }
 
 /**
@@ -495,7 +477,9 @@ const clearAllFilters = () => {
   loadOnlineModels()
 }
 
-// 加载在线模型列表
+/**
+ * 加载在线模型列表
+ */
 const loadOnlineModels = async () => {
   currentPage.value = 1
   onlineModels.value = []
@@ -515,7 +499,9 @@ const loadOnlineModels = async () => {
   }
 }
 
-// 加载更多模型
+/**
+ * 加载更多模型
+ */
 const loadMoreModels = async () => {
   if (!hasMore.value || loading.value) return
   
@@ -542,7 +528,9 @@ const loadMoreModels = async () => {
   }
 }
 
-// 重新加载本地模型列表
+/**
+ * 重新加载本地模型列表
+ */
 const reloadLocalModels = async () => {
   try {
     window.dispatchEvent(new CustomEvent('localModelsUpdated'))
@@ -552,18 +540,24 @@ const reloadLocalModels = async () => {
   }
 }
 
-// 进度条格式化
+/**
+ * 进度条格式化
+ */
 const pullProgressFormat = (percentage) => {
   return `${percentage}%`
 }
 
-// 取消拉取
+/**
+ * 取消拉取
+ */
 const cancelPull = () => {
   detailDialogVisible.value = false
   resetPullState()
 }
 
-// 重置拉取状态
+/**
+ * 重置拉取状态
+ */
 const resetPullState = () => {
   pullLoading.value = false
   pullProgress.value = 0
@@ -574,7 +568,9 @@ const resetPullState = () => {
   currentPullModel.value = ''
 }
 
-// 监听模型拉取进度事件
+/**
+ * 监听模型拉取进度事件
+ */
 const setupPullProgressListener = () => {
   EventsOn('model_pull_progress', (eventData) => {
     const { model, status, progress, message, time } = eventData
@@ -617,13 +613,17 @@ const setupPullProgressListener = () => {
   })
 }
 
-// 拉取模型
+/**
+ * 拉取模型
+ */
 const pullModel = (model) => {
   selectedModel.value = model
   detailDialogVisible.value = true
 }
 
-// 确认拉取模型
+/**
+ * 确认拉取模型
+ */
 const confirmPullModel = async (modelName) => {
   currentPullModel.value = modelName
   
@@ -650,101 +650,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.online-models-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-body.dark-theme .online-models-container {
-  background: #1e1e1e;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.models-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fafafa;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-body.dark-theme .models-header {
-  background: #2d2d2d;
-  border-bottom-color: #3c3c3c;
-}
-
-.models-header h2 {
-  margin: 0;
-  color: #303133;
-}
-
-body.dark-theme .models-header h2 {
-  color: #e4e6eb;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 .filter-tags {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  background: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
 }
 
-body.dark-theme .filter-tags {
-  background: #252525;
-  border-bottom-color: #3c3c3c;
-}
-
 .filter-label {
-  font-size: 14px;
-  color: #606266;
-}
-
-body.dark-theme .filter-label {
-  color: #a0aec0;
-}
-
-.models-table {
-  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
 .model-name-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--spacing-md);
 }
 
 .load-more-container {
   display: flex;
   justify-content: center;
-  padding: 20px;
-  border-top: 1px solid #e4e7ed;
-}
-
-body.dark-theme .load-more-container {
-  border-top-color: #3c3c3c;
+  padding: var(--spacing-xl);
+  border-top: 1px solid var(--border-color);
 }
 
 .load-more-button {
@@ -754,52 +691,8 @@ body.dark-theme .load-more-container {
 .no-more-container {
   display: flex;
   justify-content: center;
-  padding: 40px 20px;
-  border-top: 1px solid #e4e7ed;
-}
-
-body.dark-theme .no-more-container {
-  border-top-color: #3c3c3c;
-}
-
-/* 暗色主题 - 表格样式 */
-body.dark-theme .models-table {
-  --el-table-bg-color: #1e1e1e;
-  --el-table-text-color: #e4e6eb;
-  --el-table-header-bg-color: #2d2d2d;
-  --el-table-header-text-color: #e4e6eb;
-  --el-table-border-color: #3c3c3c;
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
-}
-
-body.dark-theme .models-table :deep(.el-table) {
-  background-color: #1e1e1e !important;
-  color: #e4e6eb !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__header-wrapper th) {
-  background-color: #2d2d2d !important;
-  color: #e4e6eb !important;
-  border-bottom-color: #3c3c3c !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__body-wrapper) {
-  background-color: #1e1e1e !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__row) {
-  background-color: #1e1e1e !important;
-  color: #e4e6eb !important;
-  border-bottom-color: #3c3c3c !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__row:hover) {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__empty-block) {
-  background-color: #1e1e1e !important;
-  color: #a0aec0 !important;
+  padding: var(--spacing-3xl) var(--spacing-xl);
+  border-top: 1px solid var(--border-color);
 }
 
 /* 响应式设计 */
@@ -811,7 +704,7 @@ body.dark-theme .models-table :deep(.el-table__empty-block) {
 }
 
 @media (max-width: 768px) {
-  .models-header {
+  .page-header {
     flex-direction: column;
     align-items: flex-start;
   }

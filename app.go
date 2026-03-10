@@ -506,7 +506,29 @@ func (a *App) pullModelWithProgress(modelName string) {
 	// 发送开始事件
 	a.sendPullProgressEvent(modelName, "started", 0, "开始拉取模型")
 
+	// 应用环境变量
+	env := os.Environ()
+	for key, value := range a.environmentVariables {
+		if strValue, ok := value.(string); ok && strValue != "" {
+			env = append(env, fmt.Sprintf("%s=%s", key, strValue))
+		} else if boolValue, ok := value.(bool); ok {
+			if boolValue {
+				env = append(env, fmt.Sprintf("%s=true", key))
+			}
+		} else if intValue, ok := value.(float64); ok {
+			env = append(env, fmt.Sprintf("%s=%d", key, int(intValue)))
+		}
+	}
+
 	cmd := exec.Command(a.ollamaPath, "pull", modelName)
+	cmd.Env = env
+
+	// 隐藏命令窗口
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow: true,
+		}
+	}
 
 	// 获取标准输出管道
 	stdout, err := cmd.StdoutPipe()
@@ -531,15 +553,27 @@ func (a *App) pullModelWithProgress(modelName string) {
 		return
 	}
 
+	// 使用通道来跟踪错误状态
+	errorOccurred := make(chan bool, 1)
+	
 	// 合并 stdout 和 stderr 的读取
-	go a.readOutputLines(stdout, modelName, "stdout")
-	go a.readOutputLines(stderr, modelName, "stderr")
+	go a.readOutputLines(stdout, modelName, "stdout", errorOccurred)
+	go a.readOutputLines(stderr, modelName, "stderr", errorOccurred)
 
 	// 等待命令完成
-	if err := cmd.Wait(); err != nil {
+	err = cmd.Wait()
+	
+	// 检查是否有错误发生
+	select {
+	case <-errorOccurred:
+		log.Printf("模型拉取过程中发生错误: %s", modelName)
+		return
+	default:
+	}
+
+	if err != nil {
 		log.Printf("拉取模型失败: %v", err)
-		// 检查是否已经发送了错误事件
-		// 这里可以添加更复杂的错误检测逻辑
+		a.sendPullProgressEvent(modelName, "error", 0, fmt.Sprintf("拉取模型失败: %v", err))
 		return
 	}
 
@@ -568,7 +602,7 @@ func (a *App) sendPullProgressEvent(modelName, status string, progress float64, 
 }
 
 // readOutputLines 读取输出行并解析进度
-func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
+func (a *App) readOutputLines(reader io.Reader, modelName, streamType string, errorOccurred chan bool) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -579,6 +613,10 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
 			errorMsg := a.parsePullError(line)
 			if errorMsg != "" {
 				a.sendPullProgressEvent(modelName, "error", 0, errorMsg)
+				select {
+				case errorOccurred <- true:
+				default:
+				}
 				return
 			}
 		}
@@ -595,6 +633,10 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
 	if err := scanner.Err(); err != nil {
 		log.Printf("读取输出失败: %v", err)
 		a.sendPullProgressEvent(modelName, "error", 0, fmt.Sprintf("读取输出失败: %v", err))
+		select {
+		case errorOccurred <- true:
+		default:
+		}
 	}
 }
 

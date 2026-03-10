@@ -4,7 +4,7 @@
     <ErrorNotification ref="errorNotificationRef" />
     
     <!-- 顶部导航栏 -->
-    <el-header class="app-header glass-card">
+    <el-header class="app-header">
       <div class="header-content">
         <div class="logo-section">
           <el-icon size="24"><Monitor /></el-icon>
@@ -24,7 +24,7 @@
 
     <div class="app-container">
       <!-- 侧边栏 -->
-      <el-aside width="260px" class="sidebar glass-card glow-effect gradient-border">
+      <el-aside width="260px" class="sidebar">
         <el-menu
           :default-active="$route.path"
           :router="true"
@@ -84,12 +84,18 @@ const router = useRouter()
 const isDark = ref(true)
 const errorNotificationRef = ref(null)
 
+/**
+ * 切换主题 - 在深色和浅色主题之间切换
+ */
 const toggleTheme = () => {
   isDark.value = !isDark.value
   document.body.classList.toggle('dark-theme', isDark.value)
   document.body.classList.toggle('light-theme', !isDark.value)
 }
 
+/**
+ * 显示设置页面
+ */
 const showSettings = () => {
   router.push('/settings')
 }
@@ -100,59 +106,6 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-/* 全局主题变量 */
-:root {
-  /* 深色主题变量 */
-  --dark-bg-primary: #0b0f17;
-  --dark-bg-secondary: #1a2338;
-  --dark-text-primary: #E6EAF2;
-  --dark-text-secondary: rgba(230, 234, 242, 0.7);
-  --dark-accent-primary: #06b6d4;
-  --dark-accent-secondary: #8b5cf6;
-  --dark-glass-border: rgba(255, 255, 255, 0.06);
-  
-  /* 浅色主题变量 */
-  --light-bg-primary: #f8fafc;
-  --light-bg-secondary: #ffffff;
-  --light-text-primary: #1e293b;
-  --light-text-secondary: rgba(30, 41, 59, 0.7);
-  --light-accent-primary: #0284c7;
-  --light-accent-secondary: #7c3aed;
-  --light-glass-border: rgba(0, 0, 0, 0.06);
-}
-
-/* 深色主题 */
-body.dark-theme {
-  background: radial-gradient(circle at 20% 10%, #1a2338, #0b0f17 60%);
-  color: var(--dark-text-primary);
-  font-family: Inter, "PingFang SC", sans-serif;
-  
-  --bg-primary: var(--dark-bg-primary);
-  --bg-secondary: var(--dark-bg-secondary);
-  --text-primary: var(--dark-text-primary);
-  --text-secondary: var(--dark-text-secondary);
-  --accent-primary: var(--dark-accent-primary);
-  --accent-secondary: var(--dark-accent-secondary);
-  --glass-border: var(--dark-glass-border);
-  --accent-gradient: linear-gradient(135deg, var(--dark-accent-primary), var(--dark-accent-secondary));
-}
-
-/* 浅色主题 */
-body.light-theme {
-  background: radial-gradient(circle at 20% 10%, #f1f5f9, #ffffff 60%);
-  color: var(--light-text-primary);
-  font-family: Inter, "PingFang SC", sans-serif;
-  
-  --bg-primary: var(--light-bg-primary);
-  --bg-secondary: var(--light-bg-secondary);
-  --text-primary: var(--light-text-primary);
-  --text-secondary: var(--light-text-secondary);
-  --accent-primary: var(--light-accent-primary);
-  --accent-secondary: var(--light-accent-secondary);
-  --glass-border: var(--light-glass-border);
-  --accent-gradient: linear-gradient(135deg, var(--light-accent-primary), var(--light-accent-secondary));
-}
-
 .app-wrapper {
   height: 100vh;
   display: flex;
@@ -166,49 +119,52 @@ body.light-theme {
 .app-header {
   padding: 0;
   height: 70px;
-  margin: 16px;
+  margin: var(--spacing-lg);
   margin-bottom: 0;
-  border-radius: 16px;
-  border: 1px solid var(--glass-border);
-  background: rgba(18, 30, 58, 0.9);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
   backdrop-filter: blur(20px);
+  box-shadow: var(--shadow);
 
   .header-content {
     display: flex;
     align-items: center;
     justify-content: space-between;
     height: 100%;
-    padding: 0 24px;
+    padding: 0 var(--spacing-2xl);
 
     .logo-section {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: var(--spacing-lg);
 
       .logo-text {
-        font-size: 20px;
-        font-weight: 700;
-        background: var(--accent-gradient);
+        font-size: var(--font-size-2xl);
+        font-weight: var(--font-weight-bold);
+        background: var(--gradient-primary);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
       }
 
       .el-icon {
-        color: var(--accent-primary);
+        color: var(--color-primary);
       }
     }
 
     .header-actions {
       display: flex;
-      gap: 16px;
+      gap: var(--spacing-lg);
 
       .header-btn {
         color: var(--text-primary);
         font-size: 18px;
+        transition: all var(--transition-base);
 
         &:hover {
-          color: var(--accent-primary);
+          color: var(--color-primary);
+          transform: translateY(-1px);
         }
       }
     }
@@ -219,17 +175,18 @@ body.light-theme {
   display: flex;
   flex: 1;
   overflow: hidden;
-  padding: 16px;
-  gap: 16px;
+  padding: var(--spacing-lg);
+  gap: var(--spacing-lg);
 }
 
 .sidebar {
-  border-radius: 18px;
-  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border-color);
   height: calc(100vh - 122px);
   overflow: hidden;
-  background: rgba(18, 30, 58, 0.9);
+  background: var(--bg-elevated);
   backdrop-filter: blur(16px);
+  box-shadow: var(--shadow);
   position: relative;
 
   /* 边缘渐变发光效果 */
@@ -240,139 +197,70 @@ body.light-theme {
     left: 0;
     right: 0;
     bottom: 0;
-    border-radius: 18px;
+    border-radius: var(--radius-2xl);
     padding: 1px;
-    background: linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(139, 92, 246, 0.4), rgba(6, 182, 212, 0.4));
+    background: var(--gradient-primary);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+    opacity: 0.3;
   }
 
   .sidebar-menu {
     border: none;
     height: 100%;
     background: transparent;
-    padding: 16px 0;
+    padding: var(--spacing-lg) 0;
 
     .menu-item {
-      height: 60px;
-      line-height: 60px;
-      margin: 6px 12px;
-      border-radius: 14px;
+      height: 56px;
+      line-height: 56px;
+      margin: var(--spacing-xs) var(--spacing-md);
+      border-radius: var(--radius-lg);
       color: var(--text-secondary);
-      transition: all 0.3s ease;
+      transition: all var(--transition-base);
       position: relative;
       overflow: hidden;
-      padding-left: 24px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      padding-left: var(--spacing-2xl);
+      font-weight: var(--font-weight-medium);
 
-      /* 选中项蓝色霓虹指示条 */
+      /* 选中项样式 */
       &.is-active {
-        background: linear-gradient(90deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.1));
-        color: var(--accent-primary);
+        background: var(--gradient-primary-light);
+        color: var(--color-primary);
         box-shadow: 
           inset 0 1px 0 rgba(6, 182, 212, 0.3),
-          0 4px 16px rgba(6, 182, 212, 0.3),
-          inset 3px 0 0 var(--accent-primary);
-        border-left: 3px solid var(--accent-primary);
-        animation: pulse 2s infinite;
+          0 4px 16px rgba(6, 182, 212, 0.3);
+        border-left: 3px solid var(--color-primary);
+        padding-left: calc(var(--spacing-2xl) - 3px);
       }
 
       &:hover {
-        background: rgba(6, 182, 212, 0.15);
+        background: rgba(6, 182, 212, 0.1);
         color: var(--text-primary);
-        box-shadow: 
-          inset 0 1px 0 rgba(6, 182, 212, 0.2),
-          0 2px 8px rgba(6, 182, 212, 0.2);
+        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
       }
 
       .el-icon {
-        font-size: 20px;
-        margin-right: 16px;
-        transition: all 0.3s ease;
+        font-size: 18px;
+        margin-right: var(--spacing-lg);
+        transition: all var(--transition-base);
       }
 
       span {
-        font-size: 15px;
-        font-weight: 500;
+        font-size: var(--font-size-base);
         letter-spacing: 0.02em;
       }
     }
   }
 }
 
-/* 脉冲动画 */
-@keyframes pulse {
-  0% {
-    box-shadow: 
-      inset 0 1px 0 rgba(6, 182, 212, 0.3),
-      0 4px 16px rgba(6, 182, 212, 0.3),
-      inset 3px 0 0 var(--accent-primary);
-  }
-  50% {
-    box-shadow: 
-      inset 0 1px 0 rgba(6, 182, 212, 0.4),
-      0 6px 20px rgba(6, 182, 212, 0.4),
-      inset 3px 0 0 var(--accent-primary);
-  }
-  100% {
-    box-shadow: 
-      inset 0 1px 0 rgba(6, 182, 212, 0.3),
-      0 4px 16px rgba(6, 182, 212, 0.3),
-      inset 3px 0 0 var(--accent-primary);
-  }
-}
-
 .main-content {
-  padding: 24px;
+  padding: var(--spacing-2xl);
   overflow-y: auto;
   background: transparent;
   flex: 1;
-  border-radius: 16px;
-}
-
-/* 滚动条样式 */
-.main-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.main-content::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
-  border-radius: 4px;
-}
-
-.main-content::-webkit-scrollbar-thumb {
-  background: var(--border-color, var(--glass-border));
-  border-radius: 4px;
-}
-
-.main-content::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
-
-/* 浅色主题特殊样式 */
-body.light-theme .app-header,
-body.light-theme .sidebar {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-body.light-theme .sidebar .menu-item {
-  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.05);
-}
-
-body.light-theme .sidebar .menu-item.is-active {
-  background: linear-gradient(90deg, rgba(2, 132, 199, 0.2), rgba(124, 58, 237, 0.1));
-  box-shadow: 
-    inset 0 1px 0 rgba(2, 132, 199, 0.3),
-    0 4px 16px rgba(2, 132, 199, 0.3),
-    inset 3px 0 0 var(--accent-primary);
-}
-
-body.light-theme .sidebar .menu-item:hover {
-  background: rgba(2, 132, 199, 0.15);
-  box-shadow: 
-    inset 0 1px 0 rgba(2, 132, 199, 0.2),
-    0 2px 8px rgba(2, 132, 199, 0.2);
+  border-radius: var(--radius-xl);
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
-  <div class="chat-sessions-container">
-    <div class="sessions-header">
+  <div class="page-container">
+    <div class="page-header">
       <h2>会话管理</h2>
-      <el-button type="primary" @click="createNewSession">
+      <el-button type="primary" @click="createNewSession" class="unified-button">
         <el-icon><Plus /></el-icon>
         新建会话
       </el-button>
@@ -29,6 +29,7 @@
               @keydown.escape="cancelEdit"
               ref="editInputRef"
               autofocus
+              class="unified-input"
             />
           </div>
           <div class="session-meta">
@@ -43,6 +44,7 @@
             size="small"
             @click.stop="startEditSession(session)"
             title="重命名"
+            class="unified-button"
           >
             <el-icon><Edit /></el-icon>
           </el-button>
@@ -52,6 +54,7 @@
             type="danger"
             @click.stop="confirmDeleteSession(session)"
             title="删除"
+            class="unified-button"
           >
             <el-icon><Delete /></el-icon>
           </el-button>
@@ -65,11 +68,12 @@
       v-model="deleteDialogVisible"
       title="确认删除"
       width="400px"
+      class="unified-dialog"
     >
       <p>确定要删除会话 "{{ sessionToDelete?.name }}" 吗？此操作不可恢复。</p>
       <template #footer>
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="handleDeleteSession">确定删除</el-button>
+        <el-button @click="deleteDialogVisible = false" class="unified-button">取消</el-button>
+        <el-button type="danger" @click="handleDeleteSession" class="unified-button">确定删除</el-button>
       </template>
     </el-dialog>
   </div>
@@ -94,6 +98,9 @@ const deleteDialogVisible = ref(false)
 const sessionToDelete = ref(null)
 const editInputRef = ref(null)
 
+/**
+ * 格式化时间显示
+ */
 const formatTime = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
@@ -118,17 +125,26 @@ const formatTime = (timestamp) => {
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
+/**
+ * 创建新会话
+ */
 const createNewSession = () => {
   const session = sessionStore.createSession()
   ElMessage.success('会话创建成功')
   router.push('/chat')
 }
 
+/**
+ * 选择会话
+ */
 const selectSession = (sessionId) => {
   sessionStore.selectSession(sessionId)
   router.push('/chat')
 }
 
+/**
+ * 开始编辑会话名称
+ */
 const startEditSession = async (session) => {
   editingSessionId.value = session.id
   editingName.value = session.name
@@ -139,6 +155,9 @@ const startEditSession = async (session) => {
   }
 }
 
+/**
+ * 保存会话名称
+ */
 const saveSessionName = (sessionId) => {
   if (!editingName.value.trim()) {
     ElMessage.warning('会话名称不能为空')
@@ -150,16 +169,25 @@ const saveSessionName = (sessionId) => {
   editingName.value = ''
 }
 
+/**
+ * 取消编辑
+ */
 const cancelEdit = () => {
   editingSessionId.value = null
   editingName.value = ''
 }
 
+/**
+ * 确认删除会话
+ */
 const confirmDeleteSession = (session) => {
   sessionToDelete.value = session
   deleteDialogVisible.value = true
 }
 
+/**
+ * 处理删除会话
+ */
 const handleDeleteSession = () => {
   if (!sessionToDelete.value) return
   
@@ -176,80 +204,35 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.chat-sessions-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-body.dark-theme .chat-sessions-container {
-  background: #1e1e1e;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.sessions-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fafafa;
-}
-
-body.dark-theme .sessions-header {
-  background: #2d2d2d;
-  border-bottom-color: #3c3c3c;
-}
-
-.sessions-header h2 {
-  margin: 0;
-  color: #303133;
-}
-
-body.dark-theme .sessions-header h2 {
-  color: #e4e6eb;
-}
-
 .sessions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: var(--spacing-md);
 }
 
 .session-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  margin-bottom: 8px;
-  border-radius: 8px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin-bottom: var(--spacing-sm);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
   border: 1px solid transparent;
+  background: var(--bg-elevated);
 }
 
 .session-item:hover {
-  background: #f5f7fa;
-  border-color: #e4e7ed;
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .session-item.active {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));
-  border-color: var(--accent-primary, #06b6d4);
-}
-
-body.dark-theme .session-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: #3c3c3c;
-}
-
-body.dark-theme .session-item.active {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.2));
-  border-color: var(--accent-primary, #06b6d4);
+  background: var(--gradient-primary-light);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.2);
 }
 
 .session-info {
@@ -260,22 +243,18 @@ body.dark-theme .session-item.active {
 .session-name {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 4px;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-body.dark-theme .session-name {
-  color: #e4e6eb;
-}
-
 .session-name .el-icon {
   flex-shrink: 0;
-  color: var(--accent-primary, #06b6d4);
+  color: var(--color-primary);
 }
 
 .session-name .el-input {
@@ -284,19 +263,15 @@ body.dark-theme .session-name {
 
 .session-meta {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #909399;
-}
-
-body.dark-theme .session-meta {
-  color: #718096;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
 }
 
 .session-preview {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -310,9 +285,9 @@ body.dark-theme .session-meta {
 
 .session-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--transition-base);
 }
 
 .session-item:hover .session-actions {
@@ -320,6 +295,6 @@ body.dark-theme .session-meta {
 }
 
 .session-actions .el-button {
-  padding: 4px;
+  padding: var(--spacing-xs);
 }
 </style>

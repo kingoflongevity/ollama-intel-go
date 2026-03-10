@@ -1,9 +1,9 @@
 <template>
-  <div class="chat-container">
-    <div class="chat-header">
+  <div class="page-container chat-container">
+    <div class="page-header chat-header">
       <h2>AI 对话</h2>
-      <div class="chat-controls">
-        <el-select v-model="selectedModel" placeholder="选择模型" size="small" style="width: 150px;">
+      <div class="header-actions">
+        <el-select v-model="selectedModel" placeholder="选择模型" size="default" style="width: 150px;">
           <el-option
             v-for="model in models"
             :key="model.name"
@@ -11,7 +11,7 @@
             :value="model.name"
           />
         </el-select>
-        <el-select v-model="selectedRole" placeholder="选择角色" size="small" style="width: 150px;" @change="handleRoleChange">
+        <el-select v-model="selectedRole" placeholder="选择角色" size="default" style="width: 150px;" @change="handleRoleChange">
           <el-option label="默认助手" value="default" />
           <el-option label="代码专家" value="code" />
           <el-option label="视频脚本专家" value="video" />
@@ -19,8 +19,8 @@
           <el-option label="商业顾问" value="business" />
           <el-option label="教育专家" value="education" />
         </el-select>
-        <el-button size="small" @click="clearChat">清空对话</el-button>
-        <el-button size="small" @click="toggleSearch" :type="showSearch ? 'primary' : 'default'">
+        <el-button @click="clearChat" class="unified-button">清空对话</el-button>
+        <el-button @click="toggleSearch" :type="showSearch ? 'primary' : 'default'" class="unified-button">
           <el-icon><Search /></el-icon>
           {{ showSearch ? '关闭搜索' : '联网搜索' }}
         </el-button>
@@ -73,12 +73,14 @@
         show-word-limit
         @keydown.enter="performSearch"
         :disabled="isLoading"
+        class="unified-input"
       />
       <div class="input-controls">
         <el-button 
           type="primary" 
           :disabled="!searchQuery.trim() || isLoading"
           @click="performSearch"
+          class="unified-button"
         >
           <el-icon><Search /></el-icon>
           搜索
@@ -96,12 +98,14 @@
         show-word-limit
         @keydown.enter="handleEnter"
         :disabled="isLoading"
+        class="unified-input"
       />
       <div class="input-controls">
         <el-button 
           type="primary" 
           :disabled="!inputMessage.trim() || isLoading"
           @click="sendMessage"
+          class="unified-button"
         >
           <el-icon><Promotion /></el-icon>
           发送
@@ -137,12 +141,18 @@ const wsConnected = ref(false)
 
 const currentSessionId = computed(() => sessionStore.currentSessionId.value)
 
+/**
+ * 保存消息到会话
+ */
 const saveMessages = () => {
   if (currentSessionId.value) {
     sessionStore.saveMessages(currentSessionId.value, messages.value)
   }
 }
 
+/**
+ * 加载消息
+ */
 const loadMessages = () => {
   if (currentSessionId.value) {
     messages.value = sessionStore.getMessages(currentSessionId.value)
@@ -151,10 +161,16 @@ const loadMessages = () => {
   }
 }
 
+/**
+ * 格式化消息内容
+ */
 const formatMessage = (text) => {
   return text.replace(/\n/g, '<br>')
 }
 
+/**
+ * 连接WebSocket
+ */
 const connectWebSocket = () => {
   try {
     const wsUrl = `ws://127.0.0.1:11435/ws/chat`
@@ -184,6 +200,9 @@ const connectWebSocket = () => {
   }
 }
 
+/**
+ * 处理WebSocket消息
+ */
 const handleWebSocketMessage = (data) => {
   console.log('收到WebSocket消息:', data)
   
@@ -246,15 +265,12 @@ const handleWebSocketMessage = (data) => {
 
 /**
  * 发送消息 - 核心功能
- * 发送消息时自动创建会话并保存聊天记录
  */
 const sendMessage = async () => {
   if (!inputMessage.value.trim()) return
 
-  // 确保有当前会话，如果没有则自动创建
   const sessionId = sessionStore.ensureSession()
   
-  // 如果是新会话，根据第一条消息自动命名
   if (messages.value.length === 0) {
     const firstMsg = inputMessage.value.trim()
     const sessionName = firstMsg.length > 20 ? firstMsg.substring(0, 20) + '...' : firstMsg
@@ -283,7 +299,6 @@ const sendMessage = async () => {
   messages.value.push(aiMessagePlaceholder)
   saveMessages()
 
-  // 更新会话使用的模型
   sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
   try {
@@ -321,6 +336,9 @@ const sendMessage = async () => {
   }
 }
 
+/**
+ * 使用HTTP发送消息
+ */
 const sendMessageWithHTTP = async () => {
   try {
     const request = {
@@ -378,6 +396,9 @@ const sendMessageWithHTTP = async () => {
   }
 }
 
+/**
+ * 处理回车键
+ */
 const handleEnter = (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -385,11 +406,17 @@ const handleEnter = (event) => {
   }
 }
 
+/**
+ * 清空对话
+ */
 const clearChat = () => {
   messages.value = []
   saveMessages()
 }
 
+/**
+ * 加载模型列表
+ */
 const loadModels = async () => {
   try {
     const modelList = await ListModels()
@@ -407,10 +434,16 @@ const loadModels = async () => {
   }
 }
 
+/**
+ * 切换搜索
+ */
 const toggleSearch = () => {
   showSearch.value = !showSearch.value
 }
 
+/**
+ * 执行搜索
+ */
 const performSearch = async () => {
   if (!searchQuery.value.trim()) return
   isLoading.value = true
@@ -448,6 +481,9 @@ const performSearch = async () => {
   }
 }
 
+/**
+ * 处理角色切换
+ */
 const handleRoleChange = async () => {
   if (selectedRole.value === 'default') return
 
@@ -482,6 +518,9 @@ const handleRoleChange = async () => {
   }
 }
 
+/**
+ * 滚动到底部
+ */
 const scrollToBottom = async () => {
   await nextTick()
   if (messagesContainerRef.value) {
@@ -492,7 +531,6 @@ const scrollToBottom = async () => {
 watch(messages, () => scrollToBottom(), { deep: true })
 watch(isLoading, () => scrollToBottom())
 
-// 监听会话切换
 watch(currentSessionId, (newId, oldId) => {
   if (newId !== oldId) {
     loadMessages()
@@ -515,12 +553,10 @@ onMounted(() => {
     }
   })
   
-  // 监听会话切换事件
   window.addEventListener('sessionChanged', (event) => {
     loadMessages()
   })
   
-  // 如果没有消息，显示欢迎消息
   if (messages.value.length === 0) {
     setTimeout(() => {
       const welcomeMessage = {
@@ -545,58 +581,24 @@ onUnmounted(() => {
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-body.dark-theme .chat-container {
-  background: #1e1e1e;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fafafa;
-}
-
-body.dark-theme .chat-header {
-  background: #2d2d2d;
-  border-bottom-color: #3c3c3c;
-}
-
-.chat-header h2 {
-  margin: 0;
-  color: #303133;
-}
-
-body.dark-theme .chat-header h2 {
-  color: #e4e6eb;
-}
-
-.chat-controls {
-  display: flex;
-  gap: 12px;
+  flex-shrink: 0;
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--spacing-xl);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
 .message {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
   align-items: flex-start;
 }
 
@@ -604,7 +606,7 @@ body.dark-theme .chat-header h2 {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: var(--gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -612,74 +614,53 @@ body.dark-theme .chat-header h2 {
   flex-shrink: 0;
 }
 
-body.dark-theme .message-avatar {
-  background: #6366f1;
-}
-
 .message-content {
   flex: 1;
 }
 
 .message-role {
-  font-weight: 600;
-  margin-bottom: 4px;
-  color: #606266;
-  font-size: 14px;
-}
-
-body.dark-theme .message-role {
-  color: #a0aec0;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
 }
 
 .message-text {
-  background: #f8f9fa;
-  padding: 12px 16px;
-  border-radius: 12px;
-  line-height: 1.6;
-  color: #303133;
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-primary);
   white-space: pre-wrap;
-}
-
-body.dark-theme .message-text {
-  background: #2d2d2d;
-  color: #e4e6eb;
 }
 
 .message-time {
   text-align: right;
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
-
-body.dark-theme .message-time {
-  color: #718096;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
 }
 
 .loading-message {
   display: flex;
-  gap: 12px;
+  gap: var(--spacing-md);
   align-items: flex-start;
 }
 
 .typing-indicator {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
   align-items: center;
   height: 24px;
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
-}
-
-body.dark-theme .typing-indicator {
-  background: #2d2d2d;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
 }
 
 .typing-indicator span {
   width: 8px;
   height: 8px;
-  background: #909399;
+  background: var(--color-primary);
   border-radius: 50%;
   display: inline-block;
   animation: typing 1.4s infinite ease-in-out both;
@@ -693,43 +674,43 @@ body.dark-theme .typing-indicator {
   40% { transform: scale(1.2); opacity: 1; }
 }
 
+.search-input-area,
 .chat-input-area {
-  padding: 20px;
-  border-top: 1px solid #e4e7ed;
-  background: white;
-}
-
-body.dark-theme .chat-input-area {
-  background: #1e1e1e;
-  border-top-color: #3c3c3c;
+  padding: var(--spacing-xl);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-elevated);
 }
 
 .input-controls {
   display: flex;
   justify-content: flex-end;
-  margin-top: 12px;
+  margin-top: var(--spacing-md);
 }
 
-.el-textarea :deep(.el-textarea__inner) {
-  border-radius: 12px;
-  border: 1px solid #dcdfe6;
-  resize: vertical;
+.search-results {
+  margin-top: var(--spacing-md);
 }
 
-body.dark-theme .el-textarea :deep(.el-textarea__inner) {
-  border-color: #4a4a4a;
-  background: #2d2d2d;
-  color: #e4e6eb;
-}
-
-.search-input-area {
-  padding: 12px 20px;
-  border-top: 1px solid #e4e7ed;
-  background: #fafafa;
-}
-
-body.dark-theme .search-input-area {
-  background: #2d2d2d;
-  border-top-color: #3c3c3c;
+.search-result-item {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  
+  a {
+    color: var(--color-primary);
+    font-weight: var(--font-weight-medium);
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  p {
+    margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+  }
 }
 </style>

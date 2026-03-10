@@ -82,7 +82,9 @@ const stats = ref({})
 const serviceStatus = ref({})
 const recentChats = ref([])
 
-// 计算属性
+/**
+ * GPU状态文本
+ */
 const gpuStatusText = computed(() => {
   const status = environmentInfo.value.gpu_status || ''
   if (status.includes('Available') || status.includes('Running')) {
@@ -91,25 +93,38 @@ const gpuStatusText = computed(() => {
   return status || '检测中...'
 })
 
+/**
+ * GPU状态是否正常
+ */
 const gpuStatusOk = computed(() => {
   const status = environmentInfo.value.gpu_status || ''
   return status.includes('Available') || status.includes('Running') || status.includes('Detected')
 })
 
+/**
+ * 服务状态文本
+ */
 const serviceStatusText = computed(() => {
   return serviceStatus.value.running ? '运行中' : '已停止'
 })
 
+/**
+ * 服务状态是否正常
+ */
 const serviceStatusOk = computed(() => {
   return serviceStatus.value.running === true
 })
 
-// 导航方法
+/**
+ * 导航到指定路径
+ */
 const navigateTo = (path) => {
   router.push(path)
 }
 
-// 加载数据
+/**
+ * 加载环境信息
+ */
 const loadEnvironmentInfo = async () => {
   try {
     const info = await GetEnvironmentInfo()
@@ -119,6 +134,9 @@ const loadEnvironmentInfo = async () => {
   }
 }
 
+/**
+ * 加载统计信息
+ */
 const loadStats = async () => {
   try {
     const s = await GetStats()
@@ -128,6 +146,9 @@ const loadStats = async () => {
   }
 }
 
+/**
+ * 加载服务状态
+ */
 const loadServiceStatus = async () => {
   try {
     const status = await GetServiceStatus()
@@ -137,7 +158,9 @@ const loadServiceStatus = async () => {
   }
 }
 
-// 加载最近会话
+/**
+ * 加载最近会话
+ */
 const loadRecentChats = () => {
   try {
     const stored = localStorage.getItem('ollama-chat-sessions')
@@ -181,7 +204,7 @@ onUnmounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--spacing-xl);
   height: 100%;
   overflow-y: auto;
 }
@@ -189,13 +212,13 @@ onUnmounted(() => {
 .status-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
 .main-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
-  gap: 20px;
+  gap: var(--spacing-xl);
   flex: 1;
   min-height: 0;
 }
@@ -203,7 +226,7 @@ onUnmounted(() => {
 .left-panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--spacing-xl);
   flex: 1;
   min-height: 0;
 }
@@ -217,41 +240,32 @@ onUnmounted(() => {
 .feature-cards {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: var(--spacing-lg);
 }
 
 .feature-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--spacing-lg);
   cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid #e4e7ed;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition-base);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .feature-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  border-color: var(--accent-primary, #06b6d4);
-}
-
-body.dark-theme .feature-card {
-  background: #1e1e1e;
-  border-color: #3c3c3c;
-}
-
-body.dark-theme .feature-card:hover {
-  border-color: var(--accent-primary, #06b6d4);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
 }
 
 .feature-icon {
   width: 56px;
   height: 56px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -260,39 +274,32 @@ body.dark-theme .feature-card:hover {
 }
 
 .feature-icon.chat {
-  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
 }
 
 .feature-icon.models {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-dark));
 }
 
 .feature-icon.online {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--color-success), #059669);
 }
 
 .feature-icon.settings {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, var(--color-warning), #d97706);
 }
 
 .feature-info h4 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  color: #303133;
-}
-
-body.dark-theme .feature-info h4 {
-  color: #e4e6eb;
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
 }
 
 .feature-info p {
   margin: 0;
-  font-size: 13px;
-  color: #909399;
-}
-
-body.dark-theme .feature-info p {
-  color: #718096;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 
 /* 响应式布局 */

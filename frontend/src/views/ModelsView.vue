@@ -1,6 +1,6 @@
 <template>
-  <div class="models-container">
-    <div class="models-header">
+  <div class="page-container">
+    <div class="page-header">
       <h2>模型管理</h2>
       <div class="header-actions">
         <el-input
@@ -9,12 +9,13 @@
           prefix-icon="Search"
           style="width: 240px;"
           clearable
+          class="unified-input"
         />
-        <el-button type="primary" @click="showPullDialog">
+        <el-button type="primary" @click="showPullDialog" class="unified-button">
           <el-icon><Download /></el-icon>
           拉取模型
         </el-button>
-        <el-button @click="refreshModels">
+        <el-button @click="refreshModels" class="unified-button">
           <el-icon><Refresh /></el-icon>
           刷新
         </el-button>
@@ -24,7 +25,7 @@
     <el-table
       :data="filteredModels"
       v-loading="loading"
-      class="models-table"
+      class="unified-table"
       row-key="name"
     >
       <el-table-column prop="name" label="模型名称" width="200">
@@ -40,13 +41,17 @@
       
       <el-table-column label="参数规模" width="120">
         <template #default="{ row }">
-          {{ row.details?.parameter_size || '-' }}
+          <el-tag size="small" class="unified-tag">
+            {{ row.details?.parameter_size || '-' }}
+          </el-tag>
         </template>
       </el-table-column>
       
       <el-table-column label="量化级别" width="150">
         <template #default="{ row }">
-          {{ row.details?.quantization_level || '-' }}
+          <el-tag size="small" type="info" class="unified-tag">
+            {{ row.details?.quantization_level || '-' }}
+          </el-tag>
         </template>
       </el-table-column>
       
@@ -58,10 +63,10 @@
       
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="showModelInfo(row)">
+          <el-button size="small" @click="showModelInfo(row)" class="unified-button">
             详情
           </el-button>
-          <el-button size="small" type="danger" @click="deleteModel(row)">
+          <el-button size="small" type="danger" @click="deleteModel(row)" class="unified-button">
             删除
           </el-button>
         </template>
@@ -75,6 +80,7 @@
       width="500px"
       :close-on-click-modal="!pullLoading"
       :close-on-press-escape="!pullLoading"
+      class="unified-dialog"
     >
       <template v-if="!pullLoading">
         <el-form :model="pullForm" label-width="100px">
@@ -85,6 +91,7 @@
               placeholder="输入模型名称，如 llama3:8b"
               style="width: 100%;"
               clearable
+              class="unified-input"
             />
           </el-form-item>
         </el-form>
@@ -106,23 +113,23 @@
               {{ pullCurrentTask }}
             </el-descriptions-item>
             <el-descriptions-item label="错误信息" v-if="pullError">
-              <el-tag type="danger" effect="dark">{{ pullError }}</el-tag>
+              <el-tag type="danger" effect="dark" class="unified-tag">{{ pullError }}</el-tag>
             </el-descriptions-item>
           </el-descriptions>
         </div>
       </template>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="cancelPull" :disabled="!pullLoading">
+          <el-button @click="cancelPull" :disabled="!pullLoading" class="unified-button">
             取消拉取
           </el-button>
-          <el-button type="primary" v-if="!pullLoading" @click="confirmPullModel" :loading="pullLoading">
+          <el-button type="primary" v-if="!pullLoading" @click="confirmPullModel" :loading="pullLoading" class="unified-button">
             确认拉取
           </el-button>
-          <el-button type="success" v-else-if="pullStatus === 'success'" @click="pullDialogVisible = false">
+          <el-button type="success" v-else-if="pullStatus === 'success'" @click="pullDialogVisible = false" class="unified-button">
             完成
           </el-button>
-          <el-button type="danger" v-else-if="pullStatus === 'exception'" @click="pullDialogVisible = false">
+          <el-button type="danger" v-else-if="pullStatus === 'exception'" @click="pullDialogVisible = false" class="unified-button">
             关闭
           </el-button>
         </span>
@@ -134,6 +141,7 @@
       v-model="infoDialogVisible"
       title="模型详情"
       width="600px"
+      class="unified-dialog"
     >
       <el-descriptions v-if="selectedModel" :column="1" border>
         <el-descriptions-item label="模型名称">
@@ -156,7 +164,7 @@
         </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button @click="infoDialogVisible = false">关闭</el-button>
+        <el-button @click="infoDialogVisible = false" class="unified-button">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -196,27 +204,33 @@ const filteredModels = computed(() => {
   )
 })
 
-// 格式化日期
+/**
+ * 格式化日期
+ */
 const formatDate = (dateString) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN')
 }
 
-// 进度条格式化
+/**
+ * 进度条格式化
+ */
 const pullProgressFormat = (percentage) => {
   return `${percentage}%`
 }
 
-// 取消拉取
+/**
+ * 取消拉取
+ */
 const cancelPull = () => {
-  // 这里可以添加取消拉取的逻辑
-  // 目前后端没有提供取消拉取的API，所以只是关闭对话框
   pullDialogVisible.value = false
   resetPullState()
 }
 
-// 重置拉取状态
+/**
+ * 重置拉取状态
+ */
 const resetPullState = () => {
   pullLoading.value = false
   pullProgress.value = 0
@@ -227,22 +241,21 @@ const resetPullState = () => {
   currentPullModel.value = ''
 }
 
-// 监听模型拉取进度事件
+/**
+ * 监听模型拉取进度事件
+ */
 const setupPullProgressListener = () => {
   EventsOn('model_pull_progress', (eventData) => {
     const { model, status, progress, message, time } = eventData
     
-    // 只处理当前正在拉取的模型
     if (model !== currentPullModel.value) {
       return
     }
     
-    // 更新进度
     if (progress >= 0) {
       pullProgress.value = Math.round(progress)
     }
     
-    // 更新状态
     switch (status) {
       case 'started':
         pullStatus.value = ''
@@ -259,7 +272,6 @@ const setupPullProgressListener = () => {
         pullStatusText.value = '拉取完成'
         pullCurrentTask.value = message
         pullProgress.value = 100
-        // 拉取完成后重新加载模型列表，增加延迟并添加重试机制
         loadModelsWithRetry()
         break
       case 'error':
@@ -272,7 +284,9 @@ const setupPullProgressListener = () => {
   })
 }
 
-// 加载模型列表
+/**
+ * 加载模型列表
+ */
 const loadModels = async () => {
   loading.value = true
   try {
@@ -288,9 +302,6 @@ const loadModels = async () => {
 
 /**
  * 带重试机制的模型列表加载函数
- * 在模型拉取完成后调用，确保模型列表能够正确刷新
- * @param maxRetries 最大重试次数，默认3次
- * @param delay 初始延迟时间（毫秒），默认2000ms
  */
 const loadModelsWithRetry = async (maxRetries = 3, delay = 2000) => {
   let retryCount = 0
@@ -308,15 +319,12 @@ const loadModelsWithRetry = async (maxRetries = 3, delay = 2000) => {
     }
   }
   
-  // 延迟后首次尝试
   await new Promise(resolve => setTimeout(resolve, delay))
   
   const success = await attemptLoad()
   
-  // 如果首次尝试失败，进行重试
   if (!success && retryCount < maxRetries) {
     for (let i = retryCount; i < maxRetries; i++) {
-      // 每次重试增加延迟时间
       const retryDelay = delay + (i * 1000)
       console.log(`将在 ${retryDelay}ms 后进行第 ${i + 1} 次重试...`)
       await new Promise(resolve => setTimeout(resolve, retryDelay))
@@ -329,18 +337,24 @@ const loadModelsWithRetry = async (maxRetries = 3, delay = 2000) => {
   }
 }
 
-// 刷新模型列表
+/**
+ * 刷新模型列表
+ */
 const refreshModels = () => {
   loadModels()
 }
 
-// 显示拉取模型对话框
+/**
+ * 显示拉取模型对话框
+ */
 const showPullDialog = () => {
   pullForm.value = { name: '' }
   pullDialogVisible.value = true
 }
 
-// 模型搜索建议
+/**
+ * 模型搜索建议
+ */
 const queryModelSearch = (queryString, cb) => {
   const modelSuggestions = [
     { value: 'llama3:8b' },
@@ -361,7 +375,9 @@ const queryModelSearch = (queryString, cb) => {
   cb(results)
 }
 
-// 确认拉取模型
+/**
+ * 确认拉取模型
+ */
 const confirmPullModel = async () => {
   if (!pullForm.value.name) {
     ElMessage.warning('请输入模型名称')
@@ -377,7 +393,6 @@ const confirmPullModel = async () => {
   
   try {
     await PullModel(modelName)
-    // 拉取已经开始，不需要关闭对话框，等待进度更新
   } catch (error) {
     console.error('拉取模型失败:', error)
     pullStatus.value = 'exception'
@@ -387,22 +402,24 @@ const confirmPullModel = async () => {
   }
 }
 
-// 显示模型详情
+/**
+ * 显示模型详情
+ */
 const showModelInfo = async (model) => {
   try {
-    // 获取详细信息
     const details = await ShowModel(model.name)
     selectedModel.value = { ...model, ...details }
     infoDialogVisible.value = true
   } catch (error) {
     console.error('获取模型详情失败:', error)
-    // 如果获取详情失败，至少显示基本信息
     selectedModel.value = model
     infoDialogVisible.value = true
   }
 }
 
-// 删除模型
+/**
+ * 删除模型
+ */
 const deleteModel = async (model) => {
   try {
     await ElMessageBox.confirm(
@@ -417,7 +434,7 @@ const deleteModel = async (model) => {
 
     await DeleteModel(model.name)
     ElMessage.success('模型删除成功')
-    loadModels() // 重新加载模型列表
+    loadModels()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除模型失败:', error)
@@ -431,7 +448,6 @@ onMounted(() => {
   loadModels()
   setupPullProgressListener()
   
-  // 监听本地模型更新事件
   window.addEventListener('localModelsUpdated', () => {
     console.log('收到本地模型更新事件，重新加载模型列表')
     loadModels()
@@ -440,102 +456,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.models-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-body.dark-theme .models-container {
-  background: #1e1e1e;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.models-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #fafafa;
-}
-
-body.dark-theme .models-header {
-  background: #2d2d2d;
-  border-bottom-color: #3c3c3c;
-}
-
-.models-header h2 {
-  margin: 0;
-  color: #303133;
-}
-
-body.dark-theme .models-header h2 {
-  color: #e4e6eb;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.models-table {
-  flex: 1;
-}
-
 .model-name-cell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-}
-
-/* 暗色主题 - 表格样式 */
-body.dark-theme .models-table {
-  --el-table-bg-color: #1e1e1e;
-  --el-table-text-color: #e4e6eb;
-  --el-table-header-bg-color: #2d2d2d;
-  --el-table-header-text-color: #e4e6eb;
-  --el-table-border-color: #3c3c3c;
-  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.05);
-}
-
-body.dark-theme .models-table :deep(.el-table) {
-  background-color: #1e1e1e !important;
-  color: #e4e6eb !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__header-wrapper th) {
-  background-color: #2d2d2d !important;
-  color: #e4e6eb !important;
-  border-bottom-color: #3c3c3c !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__body-wrapper) {
-  background-color: #1e1e1e !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__row) {
-  background-color: #1e1e1e !important;
-  color: #e4e6eb !important;
-  border-bottom-color: #3c3c3c !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__row:hover) {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-body.dark-theme .models-table :deep(.el-table__empty-block) {
-  background-color: #1e1e1e !important;
-  color: #a0aec0 !important;
+  gap: var(--spacing-md);
 }
 </style>

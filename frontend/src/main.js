@@ -3,6 +3,9 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
+// 引入设计系统
+import '@/styles/design-system.scss'
+
 import App from './App.vue'
 import router from './router'
 
