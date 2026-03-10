@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"bufio"
@@ -1123,63 +1123,162 @@ func (a *App) fetchOnlineModelsFromOllama() ([]map[string]interface{}, error) {
 	return a.getBuiltinOnlineModels(), nil
 }
 
-// fetchOnlineModelsFromAPI 从 Ollama 官方库 API 获取模型列表
+// fetchOnlineModelsFromAPI 从 Ollama 官方库页面获取模型列表
+// 通过解析 ollama.com/library 和 ollama.com/search 页面获取完整的模型列表
 func (a *App) fetchOnlineModelsFromAPI() ([]map[string]interface{}, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 
-	// 尝试从 Ollama 官方库获取模型列表
-	resp, err := client.Get("https://ollama.com/api/models")
+	// 从 ollama.com/library 页面获取模型列表
+	resp, err := client.Get("https://ollama.com/library")
 	if err != nil {
-		log.Printf("从 Ollama API 获取模型失败: %v", err)
+		log.Printf("从 Ollama library 页面获取模型失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API 返回状态码: %d", resp.StatusCode)
+		return nil, fmt.Errorf("页面返回状态码: %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Models []struct {
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Size        int64  `json:"size"`
-			Details     struct {
-				ParameterSize     string `json:"parameter_size"`
-				QuantizationLevel string `json:"quantization_level"`
-				Format            string `json:"format"`
-				Family            string `json:"family"`
-			} `json:"details"`
-		} `json:"models"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	// 读取页面内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return nil, err
 	}
 
-	// 转换为统一格式
-	var models []map[string]interface{}
-	for _, m := range result.Models {
-		models = append(models, map[string]interface{}{
-			"name":        m.Name,
-			"description": m.Description,
-			"size":        formatBytes(m.Size),
-			"details": map[string]interface{}{
-				"parameter_size":     m.Details.ParameterSize,
-				"quantization_level": m.Details.QuantizationLevel,
-				"format":             m.Details.Format,
-				"family":             m.Details.Family,
-			},
-		})
+	// 解析HTML获取模型列表
+	models := a.parseOllamaLibraryPage(string(body))
+	log.Printf("从 Ollama library 页面解析到 %d 个模型", len(models))
+
+	if len(models) == 0 {
+		return nil, fmt.Errorf("未能从页面解析到任何模型")
 	}
 
 	return models, nil
 }
 
-// searchOnlineModelsWithOllama 使用 Ollama 命令搜索在线模型
+// parseOllamaLibraryPage 解析 Ollama library 页面获取模型列表
+func (a *App) parseOllamaLibraryPage(htmlContent string) []map[string]interface{} {
+	var models []map[string]interface{}
+	seenModels := make(map[string]bool)
+
+	// 使用正则表达式提取模型信息
+	// 匹配模型名称 - 在 <h2> 标签内的模型名称
+	nameRegex := regexp.MustCompile(`<h2[^>]*>\s*([a-zA-Z0-9_.-]+)\s*</h2>`)
+	// 匹配描述 - 在 class="text-neutral-400" 的段落中
+	descRegex := regexp.MustCompile(`<p[^>]*class="[^"]*text-neutral-400[^"]*"[^>]*>([^<]+)</p>`)
+	// 匹配下载量
+	pullsRegex := regexp.MustCompile(`(\d+\.?\d*[KM]?)\s*Pulls`)
+	// 匹配标签数量
+	tagsRegex := regexp.MustCompile(`(\d+)\s*Tags`)
+	// 匹配参数大小
+	paramRegex := regexp.MustCompile(`(\d+(?:\.\d+)?[bm]?)`)
+
+	// 提取所有模型名称
+	nameMatches := nameRegex.FindAllStringSubmatch(htmlContent, -1)
+	descMatches := descRegex.FindAllStringSubmatch(htmlContent, -1)
+
+	// 提取下载量
+	pullsMatches := pullsRegex.FindAllStringSubmatch(htmlContent, -1)
+	// 提取标签数量
+	tagsMatches := tagsRegex.FindAllStringSubmatch(htmlContent, -1)
+
+	// 合并模型信息
+	maxLen := len(nameMatches)
+	if len(descMatches) > maxLen {
+		maxLen = len(descMatches)
+	}
+
+	for i := 0; i < maxLen && i < len(nameMatches); i++ {
+		name := strings.TrimSpace(nameMatches[i][1])
+		if name == "" || seenModels[name] {
+			continue
+		}
+		seenModels[name] = true
+
+		description := ""
+		if i < len(descMatches) {
+			description = strings.TrimSpace(descMatches[i][1])
+		}
+
+		pulls := ""
+		if i < len(pullsMatches) {
+			pulls = strings.TrimSpace(pullsMatches[i][1]) + " Pulls"
+		}
+
+		tags := ""
+		if i < len(tagsMatches) {
+			tags = strings.TrimSpace(tagsMatches[i][1])
+		}
+
+		// 尝试从描述中提取参数大小
+		paramSize := ""
+		if matches := paramRegex.FindStringSubmatch(description); len(matches) > 1 {
+			paramSize = matches[1]
+		}
+
+		model := map[string]interface{}{
+			"name":        name,
+			"description": description,
+			"pulls":       pulls,
+			"tags_count":  tags,
+			"details": map[string]interface{}{
+				"parameter_size": paramSize,
+				"format":         "gguf",
+			},
+		}
+
+		models = append(models, model)
+	}
+
+	// 如果正则表达式没有匹配到足够的模型，尝试另一种方法
+	if len(models) < 50 {
+		// 使用更简单的正则匹配模型名称
+		simpleNameRegex := regexp.MustCompile(`href="/library/([a-zA-Z0-9_.-]+)"`)
+		simpleMatches := simpleNameRegex.FindAllStringSubmatch(htmlContent, -1)
+
+		for _, match := range simpleMatches {
+			name := strings.TrimSpace(match[1])
+			if name == "" || seenModels[name] || strings.Contains(name, "blog") {
+				continue
+			}
+			seenModels[name] = true
+
+			model := map[string]interface{}{
+				"name":        name,
+				"description": fmt.Sprintf("%s model from Ollama library", name),
+				"pulls":       "N/A",
+				"tags_count":  "N/A",
+				"details": map[string]interface{}{
+					"format": "gguf",
+				},
+			}
+
+			models = append(models, model)
+		}
+	}
+
+	return models
+}
+
+// searchOnlineModelsWithOllama 搜索在线模型
+// 首先尝试从 Ollama 搜索页面获取结果，如果失败则从本地缓存搜索
 func (a *App) searchOnlineModelsWithOllama(query string) ([]map[string]interface{}, error) {
-	// 首先获取所有内置模型
-	allModels := a.getBuiltinOnlineModels()
+	// 如果有搜索关键词，尝试从 Ollama 搜索页面获取结果
+	if query != "" {
+		searchResults, err := a.searchOnlineModelsFromWeb(query)
+		if err == nil && len(searchResults) > 0 {
+			return searchResults, nil
+		}
+		log.Printf("从网页搜索失败，使用本地模型列表: %v", err)
+	}
+
+	// 获取所有在线模型（从网页或内置列表）
+	allModels, err := a.fetchOnlineModelsFromAPI()
+	if err != nil {
+		log.Printf("获取在线模型失败，使用内置模型列表: %v", err)
+		allModels = a.getBuiltinOnlineModels()
+	}
 
 	// 如果没有搜索关键词，返回所有模型
 	if query == "" {
@@ -1221,6 +1320,146 @@ func (a *App) searchOnlineModelsWithOllama(query string) ([]map[string]interface
 	}
 
 	return filtered, nil
+}
+
+// searchOnlineModelsFromWeb 从 Ollama 搜索页面搜索模型
+func (a *App) searchOnlineModelsFromWeb(query string) ([]map[string]interface{}, error) {
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	// 从 ollama.com/search?q=query 页面获取搜索结果
+	searchURL := fmt.Sprintf("https://ollama.com/search?q=%s", query)
+	resp, err := client.Get(searchURL)
+	if err != nil {
+		log.Printf("从 Ollama 搜索页面获取结果失败: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("搜索页面返回状态码: %d", resp.StatusCode)
+	}
+
+	// 读取页面内容
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析搜索结果页面
+	models := a.parseOllamaSearchPage(string(body), query)
+	log.Printf("从 Ollama 搜索页面解析到 %d 个模型", len(models))
+
+	return models, nil
+}
+
+// parseOllamaSearchPage 解析 Ollama 搜索页面获取模型列表
+func (a *App) parseOllamaSearchPage(htmlContent string, query string) []map[string]interface{} {
+	var models []map[string]interface{}
+	seenModels := make(map[string]bool)
+
+	// 使用正则表达式提取模型信息
+	// 匹配模型名称 - 在 <h2> 标签内的模型名称
+	nameRegex := regexp.MustCompile(`<h2[^>]*>\s*([a-zA-Z0-9_.-]+)\s*</h2>`)
+	// 匹配描述 - 在 class="text-neutral-400" 的段落中
+	descRegex := regexp.MustCompile(`<p[^>]*class="[^"]*text-neutral-400[^"]*"[^>]*>([^<]+)</p>`)
+	// 匹配下载量
+	pullsRegex := regexp.MustCompile(`(\d+\.?\d*[KM]?)\s*Pulls`)
+	// 匹配标签数量
+	tagsRegex := regexp.MustCompile(`(\d+)\s*Tags`)
+
+	// 提取所有模型名称
+	nameMatches := nameRegex.FindAllStringSubmatch(htmlContent, -1)
+	descMatches := descRegex.FindAllStringSubmatch(htmlContent, -1)
+
+	// 提取下载量
+	pullsMatches := pullsRegex.FindAllStringSubmatch(htmlContent, -1)
+	// 提取标签数量
+	tagsMatches := tagsRegex.FindAllStringSubmatch(htmlContent, -1)
+
+	// 合并模型信息
+	maxLen := len(nameMatches)
+	if len(descMatches) > maxLen {
+		maxLen = len(descMatches)
+	}
+
+	lowerQuery := strings.ToLower(query)
+
+	for i := 0; i < maxLen && i < len(nameMatches); i++ {
+		name := strings.TrimSpace(nameMatches[i][1])
+		if name == "" || seenModels[name] {
+			continue
+		}
+
+		description := ""
+		if i < len(descMatches) {
+			description = strings.TrimSpace(descMatches[i][1])
+		}
+
+		// 检查是否匹配搜索关键词
+		if !strings.Contains(strings.ToLower(name), lowerQuery) &&
+			!strings.Contains(strings.ToLower(description), lowerQuery) {
+			continue
+		}
+
+		seenModels[name] = true
+
+		pulls := ""
+		if i < len(pullsMatches) {
+			pulls = strings.TrimSpace(pullsMatches[i][1]) + " Pulls"
+		}
+
+		tags := ""
+		if i < len(tagsMatches) {
+			tags = strings.TrimSpace(tagsMatches[i][1])
+		}
+
+		model := map[string]interface{}{
+			"name":        name,
+			"description": description,
+			"pulls":       pulls,
+			"tags_count":  tags,
+			"details": map[string]interface{}{
+				"format": "gguf",
+			},
+		}
+
+		models = append(models, model)
+	}
+
+	// 如果正则表达式没有匹配到足够的模型，尝试另一种方法
+	if len(models) < 10 {
+		// 使用更简单的正则匹配模型名称
+		simpleNameRegex := regexp.MustCompile(`href="/library/([a-zA-Z0-9_.-]+)"`)
+		simpleMatches := simpleNameRegex.FindAllStringSubmatch(htmlContent, -1)
+
+		for _, match := range simpleMatches {
+			name := strings.TrimSpace(match[1])
+			if name == "" || seenModels[name] || strings.Contains(name, "blog") {
+				continue
+			}
+
+			// 检查是否匹配搜索关键词
+			if !strings.Contains(strings.ToLower(name), lowerQuery) {
+				continue
+			}
+
+			seenModels[name] = true
+
+			model := map[string]interface{}{
+				"name":        name,
+				"description": fmt.Sprintf("%s model from Ollama library", name),
+				"pulls":       "N/A",
+				"tags_count":  "N/A",
+				"details": map[string]interface{}{
+					"format": "gguf",
+				},
+			}
+
+			models = append(models, model)
+		}
+	}
+
+	return models
 }
 
 // getBuiltinOnlineModels 返回内置的在线模型列表
