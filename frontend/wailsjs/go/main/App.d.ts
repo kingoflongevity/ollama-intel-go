@@ -4,6 +4,8 @@ import {main} from '../models';
 import {websocket} from '../models';
 import {http} from '../models';
 
+export function CancelPull(arg1:string):Promise<Record<string, any>>;
+
 export function ChatCompletion(arg1:main.ChatRequest):Promise<main.ChatResponse>;
 
 export function CheckOllamaAvailable():Promise<boolean>;
