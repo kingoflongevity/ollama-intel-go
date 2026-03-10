@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"bufio"
@@ -380,7 +380,7 @@ func (a *App) ListModels() []ModelInfo {
 				model := ModelInfo{
 					Name:     getString(modelMap, "name"),
 					Model:    getString(modelMap, "model"),
-					Size:     getString(modelMap, "size"),
+					Size:     getSizeString(modelMap, "size"),
 					Digest:   getString(modelMap, "digest"),
 					Modified: getString(modelMap, "modified_at"),
 					Details:  make(map[string]interface{}),
@@ -434,6 +434,54 @@ func getString(m map[string]interface{}, key string) string {
 	if val, ok := m[key]; ok {
 		if str, ok := val.(string); ok {
 			return str
+		}
+	}
+	return ""
+}
+
+// getInt64 从 map 中获取 int64 值
+func getInt64(m map[string]interface{}, key string) int64 {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case float64:
+			return int64(v)
+		case int64:
+			return v
+		case int:
+			return int64(v)
+		}
+	}
+	return 0
+}
+
+// formatBytes 将字节数格式化为人类可读的字符串
+func formatBytes(bytes int64) string {
+	if bytes <= 0 {
+		return "0 B"
+	}
+	const unit = 1024
+	sizes := []string{"B", "KB", "MB", "GB", "TB", "PB"}
+	i := 0
+	fb := float64(bytes)
+	for fb >= unit && i < len(sizes)-1 {
+		fb /= unit
+		i++
+	}
+	return fmt.Sprintf("%.1f %s", fb, sizes[i])
+}
+
+// getSizeString 从 map 中获取大小并格式化为人类可读字符串
+func getSizeString(m map[string]interface{}, key string) string {
+	if val, ok := m[key]; ok {
+		switch v := val.(type) {
+		case float64:
+			return formatBytes(int64(v))
+		case int64:
+			return formatBytes(v)
+		case int:
+			return formatBytes(int64(v))
+		case string:
+			return v
 		}
 	}
 	return ""
@@ -550,30 +598,48 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
 
 // parsePullProgress 解析拉取进度信息
 func (a *App) parsePullProgress(line string) (float64, string) {
-	// 尝试解析百分比格式，例如: "pulling manifest... 50%"
-	// 或者: "pulling 123456... 100% |████████████████████| (1.0/1.0 MB)"
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return -1, ""
+	}
 
-	// 查找百分比
+	// 尝试解析 JSON 格式的进度信息
+	var jsonProgress struct {
+		Status    string  `json:"status"`
+		Completed int64   `json:"completed,omitempty"`
+		Total     int64   `json:"total,omitempty"`
+		Percent   float64 `json:"percent,omitempty"`
+		Digest    string  `json:"digest,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(line), &jsonProgress); err == nil {
+		// JSON 格式
+		if jsonProgress.Percent > 0 {
+			return jsonProgress.Percent, jsonProgress.Status
+		}
+		if jsonProgress.Total > 0 && jsonProgress.Completed >= 0 {
+			percent := float64(jsonProgress.Completed) / float64(jsonProgress.Total) * 100
+			return percent, fmt.Sprintf("%s (%s / %s)", jsonProgress.Status,
+				formatBytes(jsonProgress.Completed), formatBytes(jsonProgress.Total))
+		}
+		if jsonProgress.Status != "" {
+			return -1, jsonProgress.Status
+		}
+	}
+
+	// 尝试解析文本格式的百分比
 	if strings.Contains(line, "%") {
-		// 简单的正则表达式匹配
-		// 寻找数字后跟 % 的模式
-		line = strings.TrimSpace(line)
-
-		// 分割空格
-		parts := strings.Split(line, " ")
+		parts := strings.Fields(line)
 		for _, part := range parts {
 			if strings.Contains(part, "%") {
-				// 提取数字部分
 				percentStr := strings.Trim(part, "%")
 				if percent, err := strconv.ParseFloat(percentStr, 64); err == nil {
-					// 返回百分比和原始行作为消息
 					return percent, line
 				}
 			}
 		}
 	}
 
-	// 如果没有找到百分比，返回 -1 表示没有进度信息
 	return -1, line
 }
 
@@ -1034,6 +1100,15 @@ func (a *App) SearchOnlineModels(query string, page int, limit int) map[string]i
 
 // fetchOnlineModelsFromOllama 使用 Ollama 命令获取在线模型列表
 func (a *App) fetchOnlineModelsFromOllama() ([]map[string]interface{}, error) {
+	// 首先尝试从 API 获取模型列表
+	models, err := a.fetchOnlineModelsFromAPI()
+	if err == nil && len(models) > 0 {
+		log.Printf("从 API 获取到 %d 个在线模型", len(models))
+		return models, nil
+	}
+
+	log.Printf("从 API 获取模型失败，使用内置模型列表: %v", err)
+
 	// 运行 ollama list 命令获取本地模型
 	localModels, err := a.runOllamaCommand("list")
 	if err != nil {
@@ -1046,6 +1121,59 @@ func (a *App) fetchOnlineModelsFromOllama() ([]map[string]interface{}, error) {
 	// 使用内置的在线模型列表
 	// 这些模型是从 Ollama 官方库中精选的
 	return a.getBuiltinOnlineModels(), nil
+}
+
+// fetchOnlineModelsFromAPI 从 Ollama 官方库 API 获取模型列表
+func (a *App) fetchOnlineModelsFromAPI() ([]map[string]interface{}, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// 尝试从 Ollama 官方库获取模型列表
+	resp, err := client.Get("https://ollama.com/api/models")
+	if err != nil {
+		log.Printf("从 Ollama API 获取模型失败: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API 返回状态码: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Models []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Size        int64  `json:"size"`
+			Details     struct {
+				ParameterSize     string `json:"parameter_size"`
+				QuantizationLevel string `json:"quantization_level"`
+				Format            string `json:"format"`
+				Family            string `json:"family"`
+			} `json:"details"`
+		} `json:"models"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	// 转换为统一格式
+	var models []map[string]interface{}
+	for _, m := range result.Models {
+		models = append(models, map[string]interface{}{
+			"name":        m.Name,
+			"description": m.Description,
+			"size":        formatBytes(m.Size),
+			"details": map[string]interface{}{
+				"parameter_size":     m.Details.ParameterSize,
+				"quantization_level": m.Details.QuantizationLevel,
+				"format":             m.Details.Format,
+				"family":             m.Details.Family,
+			},
+		})
+	}
+
+	return models, nil
 }
 
 // searchOnlineModelsWithOllama 使用 Ollama 命令搜索在线模型
@@ -2204,4 +2332,97 @@ func (a *App) handleOpenAIModel(w http.ResponseWriter, r *http.Request) {
 	// 发送响应
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(modelResp)
+}
+
+// GetRealTimeStats 获取实时系统状态
+func (a *App) GetRealTimeStats() map[string]interface{} {
+	stats := map[string]interface{}{
+		"timestamp": time.Now().Unix(),
+	}
+
+	// 获取内存使用情况
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("powershell", "-Command",
+			"Get-WmiObject Win32_OperatingSystem | Select-Object FreePhysicalMemory, TotalVisibleMemorySize")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		if output, err := cmd.Output(); err == nil {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			if len(lines) > 2 {
+				values := strings.Fields(strings.TrimSpace(lines[2]))
+				if len(values) >= 2 {
+					if freeKB, err := strconv.ParseUint(values[0], 10, 64); err == nil {
+						if totalKB, err := strconv.ParseUint(values[1], 10, 64); err == nil {
+							totalGB := float64(totalKB) / 1024 / 1024
+							freeGB := float64(freeKB) / 1024 / 1024
+							usedGB := totalGB - freeGB
+							stats["memory"] = map[string]interface{}{
+								"total_gb":      totalGB,
+								"used_gb":       usedGB,
+								"free_gb":       freeGB,
+								"used_percent":  (usedGB / totalGB) * 100,
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 获取 CPU 使用率
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("powershell", "-Command",
+			"Get-WmiObject Win32_Processor | Select-Object LoadPercentage")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		if output, err := cmd.Output(); err == nil {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			if len(lines) > 2 {
+				cpuLoad := strings.TrimSpace(lines[2])
+				if load, err := strconv.ParseFloat(cpuLoad, 64); err == nil {
+					stats["cpu"] = map[string]interface{}{
+						"usage_percent": load,
+					}
+				}
+			}
+		}
+	}
+
+	// 获取 GPU 信息（如果可用）
+	stats["gpu"] = a.getGPUInfo()
+
+	// 获取服务状态
+	stats["service"] = a.GetServiceStatus()
+
+	return stats
+}
+
+// getGPUInfo 获取 GPU 信息
+func (a *App) getGPUInfo() map[string]interface{} {
+	gpuInfo := map[string]interface{}{
+		"available": false,
+		"name":      "Unknown",
+		"memory":    "N/A",
+	}
+
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command("powershell", "-Command",
+			"Get-WmiObject Win32_VideoController | Select-Object Name, AdapterRAM")
+		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		if output, err := cmd.Output(); err == nil {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.Contains(strings.ToLower(line), "intel") ||
+					strings.Contains(strings.ToLower(line), "nvidia") ||
+					strings.Contains(strings.ToLower(line), "amd") {
+					parts := strings.Fields(line)
+					if len(parts) > 0 {
+						gpuInfo["available"] = true
+						gpuInfo["name"] = strings.Join(parts, " ")
+					}
+				}
+			}
+		}
+	}
+
+	return gpuInfo
 }
