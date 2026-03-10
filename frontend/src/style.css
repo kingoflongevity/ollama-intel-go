@@ -242,3 +242,305 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* Element Plus 组件在黑色主题下的样式覆盖 */
+body.dark-theme {
+    /* 表格样式 */
+    --el-table-bg-color: var(--bg-secondary);
+    --el-table-tr-bg-color: var(--bg-secondary);
+    --el-table-header-bg-color: var(--bg-tertiary);
+    --el-table-row-hover-bg-color: var(--bg-tertiary);
+    --el-table-border-color: var(--border-color);
+    --el-table-text-color: var(--text-primary);
+    --el-table-header-text-color: var(--text-primary);
+    
+    /* 输入框样式 */
+    --el-input-bg-color: var(--bg-secondary);
+    --el-input-border-color: var(--border-color);
+    --el-input-text-color: var(--text-primary);
+    --el-input-placeholder-color: var(--text-secondary);
+    --el-input-hover-border-color: var(--accent-primary);
+    --el-input-focus-border-color: var(--accent-primary);
+    
+    /* 选择器样式 */
+    --el-select-input-focus-border-color: var(--accent-primary);
+    
+    /* 按钮样式 */
+    --el-button-bg-color: var(--bg-tertiary);
+    --el-button-border-color: var(--border-color);
+    --el-button-text-color: var(--text-primary);
+    --el-button-hover-bg-color: var(--accent-primary);
+    --el-button-hover-border-color: var(--accent-primary);
+    --el-button-hover-text-color: #ffffff;
+    
+    /* 对话框样式 */
+    --el-dialog-bg-color: var(--bg-secondary);
+    --el-dialog-title-font-size: 18px;
+    
+    /* 标签样式 */
+    --el-tag-bg-color: var(--bg-tertiary);
+    --el-tag-border-color: var(--border-color);
+    --el-tag-text-color: var(--text-primary);
+    
+    /* 进度条样式 */
+    --el-progress-default-color: var(--accent-primary);
+    
+    /* 描述列表样式 */
+    --el-descriptions-item-bordered-label-background: var(--bg-tertiary);
+    
+    /* 空状态样式 */
+    --el-empty-fill-color-0: var(--bg-tertiary);
+    --el-empty-fill-color-1: var(--border-color);
+    --el-empty-fill-color-2: var(--bg-tertiary);
+    --el-empty-fill-color-3: var(--border-color);
+    --el-empty-fill-color-4: var(--bg-tertiary);
+    --el-empty-fill-color-5: var(--border-color);
+    --el-empty-fill-color-6: var(--bg-tertiary);
+    --el-empty-fill-color-7: var(--border-color);
+    --el-empty-fill-color-8: var(--bg-tertiary);
+    --el-empty-fill-color-9: var(--border-color);
+}
+
+/* Element Plus 表格黑色主题样式 */
+body.dark-theme .el-table {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-table th.el-table__cell {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-theme .el-table td.el-table__cell {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+body.dark-theme .el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+    background-color: var(--bg-tertiary);
+}
+
+body.dark-theme .el-table__body tr:hover > td.el-table__cell {
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* Element Plus 输入框黑色主题样式 */
+body.dark-theme .el-input__wrapper {
+    background-color: var(--bg-secondary);
+    box-shadow: 0 0 0 1px var(--border-color) inset;
+}
+
+body.dark-theme .el-input__wrapper:hover {
+    box-shadow: 0 0 0 1px var(--accent-primary) inset;
+}
+
+body.dark-theme .el-input__wrapper.is-focus {
+    box-shadow: 0 0 0 1px var(--accent-primary) inset;
+}
+
+body.dark-theme .el-input__inner {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-input__inner::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Element Plus 选择器黑色主题样式 */
+body.dark-theme .el-select-dropdown {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-theme .el-select-dropdown__item {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-select-dropdown__item.hover,
+body.dark-theme .el-select-dropdown__item:hover {
+    background-color: var(--bg-tertiary);
+}
+
+body.dark-theme .el-select-dropdown__item.selected {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+/* Element Plus 按钮黑色主题样式 */
+body.dark-theme .el-button {
+    background-color: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-button:hover {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #ffffff;
+}
+
+body.dark-theme .el-button--primary {
+    background-color: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #ffffff;
+}
+
+body.dark-theme .el-button--primary:hover {
+    background-color: var(--accent-secondary);
+    border-color: var(--accent-secondary);
+    color: #ffffff;
+}
+
+/* Element Plus 对话框黑色主题样式 */
+body.dark-theme .el-dialog {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+}
+
+body.dark-theme .el-dialog__header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+body.dark-theme .el-dialog__title {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-dialog__body {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-dialog__footer {
+    border-top: 1px solid var(--border-color);
+}
+
+/* Element Plus 标签黑色主题样式 */
+body.dark-theme .el-tag {
+    background-color: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-tag--primary {
+    background-color: rgba(6, 182, 212, 0.2);
+    border-color: rgba(6, 182, 212, 0.3);
+    color: #06b6d4;
+}
+
+body.dark-theme .el-tag--success {
+    background-color: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+}
+
+body.dark-theme .el-tag--warning {
+    background-color: rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.3);
+    color: #eab308;
+}
+
+body.dark-theme .el-tag--danger {
+    background-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+body.dark-theme .el-tag--info {
+    background-color: rgba(100, 116, 139, 0.2);
+    border-color: rgba(100, 116, 139, 0.3);
+    color: #94a3b8;
+}
+
+/* Element Plus 进度条黑色主题样式 */
+body.dark-theme .el-progress-bar__outer {
+    background-color: var(--bg-tertiary);
+}
+
+body.dark-theme .el-progress-bar__inner {
+    background-color: var(--accent-primary);
+}
+
+body.dark-theme .el-progress__text {
+    color: var(--text-primary);
+}
+
+/* Element Plus 描述列表黑色主题样式 */
+body.dark-theme .el-descriptions {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-descriptions__label {
+    color: var(--text-secondary);
+}
+
+body.dark-theme .el-descriptions__content {
+    color: var(--text-primary);
+}
+
+body.dark-theme .el-descriptions__cell {
+    border-color: var(--border-color);
+}
+
+body.dark-theme .el-descriptions__body {
+    background-color: var(--bg-secondary);
+}
+
+/* Element Plus 空状态黑色主题样式 */
+body.dark-theme .el-empty__description {
+    color: var(--text-secondary);
+}
+
+/* Element Plus 加载状态黑色主题样式 */
+body.dark-theme .el-loading-mask {
+    background-color: rgba(10, 17, 40, 0.8);
+}
+
+body.dark-theme .el-loading-spinner .path {
+    stroke: var(--accent-primary);
+}
+
+body.dark-theme .el-loading-spinner i {
+    color: var(--accent-primary);
+}
+
+/* Element Plus 消息提示黑色主题样式 */
+body.dark-theme .el-message {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+body.dark-theme .el-message__content {
+    color: var(--text-primary);
+}
+
+/* 统一样式类 */
+.unified-input .el-input__wrapper {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+.unified-button {
+    transition: all 0.3s ease;
+}
+
+.unified-tag {
+    font-weight: 500;
+}
+
+.unified-table {
+    width: 100%;
+}
+
+.unified-dialog .el-dialog__header {
+    padding: 20px 20px 15px;
+}
+
+.unified-dialog .el-dialog__body {
+    padding: 20px;
+}
+
+.unified-dialog .el-dialog__footer {
+    padding: 15px 20px 20px;
+}

@@ -33,6 +33,8 @@ type App struct {
 	environmentVariables map[string]interface{}
 	websocketConnections map[string]*websocket.Conn
 	websocketMutex       sync.Mutex
+	pullProcesses        map[string]*exec.Cmd // 保存正在运行的拉取进程
+	pullProcessesMutex   sync.Mutex           // 拉取进程互斥锁
 }
 
 // 内存地址正则表达式
@@ -117,6 +119,7 @@ type ChatResponse struct {
 func NewApp() *App {
 	return &App{
 		websocketConnections: make(map[string]*websocket.Conn),
+		pullProcesses:        make(map[string]*exec.Cmd),
 	}
 }
 
@@ -489,14 +492,51 @@ func getSizeString(m map[string]interface{}, key string) string {
 
 // PullModel 拉取模型
 func (a *App) PullModel(name string) map[string]interface{} {
+	// 处理模型名称，确保包含tag
+	modelName := a.normalizeModelName(name)
+	log.Printf("PullModel: 原始名称=%s, 规范化名称=%s", name, modelName)
+
 	// 在 goroutine 中拉取模型以提供进度更新
-	go a.pullModelWithProgress(name)
+	go a.pullModelWithProgress(modelName)
 
 	return map[string]interface{}{
-		"message": fmt.Sprintf("开始拉取模型: %s", name),
-		"model":   name,
+		"message": fmt.Sprintf("开始拉取模型: %s", modelName),
+		"model":   modelName,
 		"status":  "started",
 	}
+}
+
+// normalizeModelName 规范化模型名称，确保包含tag
+func (a *App) normalizeModelName(name string) string {
+	name = strings.TrimSpace(name)
+	
+	// 如果模型名称已经包含tag（包含冒号），直接返回
+	if strings.Contains(name, ":") {
+		return name
+	}
+	
+	// 对于常见的模型，添加默认tag
+	// 优先使用latest，因为它是默认的
+	defaultTags := map[string]string{
+		"llama3":       "latest",
+		"llama2":       "latest",
+		"mistral":      "latest",
+		"gemma":        "latest",
+		"qwen2":        "latest",
+		"phi3":         "latest",
+		"codellama":    "latest",
+		"deepseek-coder": "latest",
+		"llava":        "latest",
+		"starling-lm":  "latest",
+	}
+	
+	// 检查是否有预定义的默认tag
+	if tag, ok := defaultTags[name]; ok {
+		return fmt.Sprintf("%s:%s", name, tag)
+	}
+	
+	// 默认添加:latest tag
+	return fmt.Sprintf("%s:latest", name)
 }
 
 // pullModelWithProgress 拉取模型并发送进度更新
@@ -529,6 +569,18 @@ func (a *App) pullModelWithProgress(modelName string) {
 			HideWindow: true,
 		}
 	}
+
+	// 保存进程到map中，以便后续可以取消
+	a.pullProcessesMutex.Lock()
+	a.pullProcesses[modelName] = cmd
+	a.pullProcessesMutex.Unlock()
+
+	// 确保在函数结束时清理进程
+	defer func() {
+		a.pullProcessesMutex.Lock()
+		delete(a.pullProcesses, modelName)
+		a.pullProcessesMutex.Unlock()
+	}()
 
 	// 获取标准输出管道
 	stdout, err := cmd.StdoutPipe()
@@ -573,7 +625,12 @@ func (a *App) pullModelWithProgress(modelName string) {
 
 	if err != nil {
 		log.Printf("拉取模型失败: %v", err)
-		a.sendPullProgressEvent(modelName, "error", 0, fmt.Sprintf("拉取模型失败: %v", err))
+		// 检查是否是被取消的
+		if strings.Contains(err.Error(), "signal: killed") || strings.Contains(err.Error(), "signal: terminated") {
+			a.sendPullProgressEvent(modelName, "cancelled", 0, "模型拉取已取消")
+		} else {
+			a.sendPullProgressEvent(modelName, "error", 0, fmt.Sprintf("拉取模型失败: %v", err))
+		}
 		return
 	}
 
@@ -736,6 +793,53 @@ func (a *App) DeleteModel(name string) map[string]interface{} {
 
 	return map[string]interface{}{
 		"message": fmt.Sprintf("模型已删除: %s", name),
+	}
+}
+
+// CancelPull 取消模型拉取
+func (a *App) CancelPull(modelName string) map[string]interface{} {
+	log.Printf("CancelPull: 尝试取消模型拉取: %s", modelName)
+
+	// 规范化模型名称
+	normalizedName := a.normalizeModelName(modelName)
+
+	// 查找正在运行的拉取进程
+	a.pullProcessesMutex.Lock()
+	defer a.pullProcessesMutex.Unlock()
+
+	cmd, exists := a.pullProcesses[normalizedName]
+	if !exists {
+		log.Printf("CancelPull: 未找到正在运行的拉取进程: %s", normalizedName)
+		return map[string]interface{}{
+			"success": false,
+			"message": "未找到正在运行的拉取进程",
+		}
+	}
+
+	// 终止进程
+	if cmd != nil && cmd.Process != nil {
+		log.Printf("CancelPull: 终止拉取进程: %s", normalizedName)
+		if err := cmd.Process.Kill(); err != nil {
+			log.Printf("CancelPull: 终止进程失败: %v", err)
+			return map[string]interface{}{
+				"success": false,
+				"message": fmt.Sprintf("终止进程失败: %v", err),
+			}
+		}
+
+		// 发送取消事件
+		a.sendPullProgressEvent(normalizedName, "cancelled", 0, "用户取消了模型拉取")
+
+		log.Printf("CancelPull: 成功取消模型拉取: %s", normalizedName)
+		return map[string]interface{}{
+			"success": true,
+			"message": "模型拉取已取消",
+		}
+	}
+
+	return map[string]interface{}{
+		"success": false,
+		"message": "进程不存在",
 	}
 }
 

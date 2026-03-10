@@ -212,7 +212,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Box, Download, Refresh } from '@element-plus/icons-vue'
-import { GetOnlineModels, PullModel, SearchOnlineModels, ListModels } from '../../wailsjs/go/main/App'
+import { GetOnlineModels, PullModel, SearchOnlineModels, ListModels, CancelPull } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { ElMessage } from 'element-plus'
 
@@ -550,9 +550,26 @@ const pullProgressFormat = (percentage) => {
 /**
  * 取消拉取
  */
-const cancelPull = () => {
-  detailDialogVisible.value = false
-  resetPullState()
+const cancelPull = async () => {
+  if (!currentPullModel.value) {
+    detailDialogVisible.value = false
+    resetPullState()
+    return
+  }
+
+  try {
+    const result = await CancelPull(currentPullModel.value)
+    if (result.success) {
+      ElMessage.success('已取消模型拉取')
+      detailDialogVisible.value = false
+      resetPullState()
+    } else {
+      ElMessage.warning(result.message || '取消失败')
+    }
+  } catch (error) {
+    console.error('取消拉取失败:', error)
+    ElMessage.error('取消拉取失败: ' + error.message)
+  }
 }
 
 /**
@@ -602,6 +619,12 @@ const setupPullProgressListener = () => {
         setTimeout(() => {
           reloadLocalModels()
         }, 2000)
+        break
+      case 'cancelled':
+        pullStatus.value = 'warning'
+        pullStatusText.value = '已取消'
+        pullCurrentTask.value = message
+        pullError.value = message
         break
       case 'error':
         pullStatus.value = 'exception'
