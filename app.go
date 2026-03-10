@@ -575,10 +575,12 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
 		log.Printf("模型拉取输出[%s]: %s", streamType, line)
 
 		// 检测错误信息
-		if streamType == "stderr" && (strings.Contains(line, "Error:") || strings.Contains(line, "error:")) {
-			// 发送错误事件
-			a.sendPullProgressEvent(modelName, "error", 0, line)
-			return
+		if streamType == "stderr" {
+			errorMsg := a.parsePullError(line)
+			if errorMsg != "" {
+				a.sendPullProgressEvent(modelName, "error", 0, errorMsg)
+				return
+			}
 		}
 
 		// 解析进度信息
@@ -594,6 +596,43 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string) {
 		log.Printf("读取输出失败: %v", err)
 		a.sendPullProgressEvent(modelName, "error", 0, fmt.Sprintf("读取输出失败: %v", err))
 	}
+}
+
+// parsePullError 解析拉取错误信息，返回用户友好的错误消息
+func (a *App) parsePullError(line string) string {
+	lineLower := strings.ToLower(line)
+	
+	// 检测各种错误类型
+	if strings.Contains(line, "412") || strings.Contains(lineLower, "precondition failed") {
+		return "模型拉取失败 (412): 模型不存在或模型名称格式不正确。请检查模型名称是否正确，例如: llama3:8b 或 qwen2:7b"
+	}
+	if strings.Contains(lineLower, "not found") || strings.Contains(lineLower, "404") {
+		return "模型不存在: 请检查模型名称是否正确，可以在在线模型页面查看可用模型"
+	}
+	if strings.Contains(lineLower, "connection refused") || strings.Contains(lineLower, "network") {
+		return "网络连接失败: 请检查网络连接，确保可以访问模型仓库"
+	}
+	if strings.Contains(lineLower, "timeout") {
+		return "连接超时: 网络响应过慢，请稍后重试"
+	}
+	if strings.Contains(lineLower, "permission denied") || strings.Contains(lineLower, "403") {
+		return "权限不足: 无法访问该模型"
+	}
+	if strings.Contains(lineLower, "disk") || strings.Contains(lineLower, "space") {
+		return "磁盘空间不足: 请清理磁盘空间后重试"
+	}
+	if strings.Contains(line, "Error:") || strings.Contains(lineLower, "error:") {
+		// 提取错误信息
+		if idx := strings.Index(line, "Error:"); idx != -1 {
+			return strings.TrimSpace(line[idx:])
+		}
+		if idx := strings.Index(lineLower, "error:"); idx != -1 {
+			return strings.TrimSpace(line[idx:])
+		}
+		return line
+	}
+	
+	return ""
 }
 
 // parsePullProgress 解析拉取进度信息

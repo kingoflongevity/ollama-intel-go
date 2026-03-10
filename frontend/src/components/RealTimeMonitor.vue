@@ -97,8 +97,8 @@
           <span>GPU 状态</span>
         </div>
         <div class="card-content">
-          <div class="metric-value">{{ gpuUsage }}%</div>
-          <div class="metric-sub">{{ gpuMemory }} GB</div>
+          <div class="metric-value">{{ gpuAvailable ? '可用' : '检测中' }}</div>
+          <div class="metric-sub">{{ gpuName || 'Intel GPU' }}</div>
           <div class="metric-chart">
             <svg viewBox="0 0 100 100" class="progress-ring">
               <circle
@@ -118,16 +118,13 @@
                 stroke-width="8"
                 :stroke-dasharray="circumference"
                 :stroke-dashoffset="gpuOffset"
-                :style="{ stroke: getUsageColor(gpuUsage) }"
+                :style="{ stroke: gpuAvailable ? '#67c23a' : '#e6a23c' }"
               />
             </svg>
           </div>
         </div>
         <div class="card-footer">
-          <span class="trend" :class="gpuTrend">
-            <el-icon><component :is="gpuTrendIcon" /></el-icon>
-            {{ gpuTrendText }}
-          </span>
+          <span class="last-update">{{ gpuMemory || 'N/A' }}</span>
         </div>
       </div>
 
@@ -175,69 +172,48 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Cpu, Memo, Monitor, Connection, VideoPlay, VideoPause, Refresh, ArrowUp, ArrowDown, Minus } from '@element-plus/icons-vue'
+import { GetRealTimeStats, GetServiceStatus } from '../../wailsjs/go/main/App'
 
 // 响应式数据
 const isMonitoring = ref(true)
 const cpuUsage = ref(0)
 const memoryUsage = ref(0)
 const memoryPercent = ref(0)
-const gpuUsage = ref(0)
-const gpuMemory = ref(0)
+const gpuAvailable = ref(false)
+const gpuName = ref('')
+const gpuMemory = ref('')
 const lastUpdateTime = ref('')
 const refreshInterval = ref(null)
 
 // 趋势数据
 const cpuTrend = ref('stable')
 const memoryTrend = ref('stable')
-const gpuTrend = ref('stable')
 const previousCpu = ref(0)
 const previousMemory = ref(0)
-const previousGpu = ref(0)
 
 // 服务状态
 const services = ref([
-  { name: 'Ollama 服务', status: 'running', statusText: '运行中' },
-  { name: 'WebSocket 服务', status: 'running', statusText: '运行中' },
-  { name: '模型加载器', status: 'running', statusText: '运行中' }
+  { name: 'Ollama 服务', status: 'stopped', statusText: '检测中' },
+  { name: 'WebSocket 服务', status: 'running', statusText: '运行中' }
 ])
 
 // 圆环周长
 const circumference = 2 * Math.PI * 40
 
-/**
- * 计算 CPU 偏移量
- */
-const cpuOffset = computed(() => {
-  return circumference - (cpuUsage.value / 100) * circumference
-})
+// 计算偏移量
+const cpuOffset = computed(() => circumference - (cpuUsage.value / 100) * circumference)
+const memoryOffset = computed(() => circumference - (memoryPercent.value / 100) * circumference)
+const gpuOffset = computed(() => gpuAvailable.value ? 0 : circumference * 0.5)
 
-/**
- * 计算内存偏移量
- */
-const memoryOffset = computed(() => {
-  return circumference - (memoryPercent.value / 100) * circumference
-})
-
-/**
- * 计算 GPU 偏移量
- */
-const gpuOffset = computed(() => {
-  return circumference - (gpuUsage.value / 100) * circumference
-})
-
-/**
- * 获取使用率颜色
- */
+// 获取使用率颜色
 const getUsageColor = (usage) => {
-  if (usage >= 80) return '#f56c6c' // 红色
-  if (usage >= 60) return '#e6a23c' // 橙色
-  if (usage >= 40) return '#409eff' // 蓝色
-  return '#67c23a' // 绿色
+  if (usage >= 80) return '#f56c6c'
+  if (usage >= 60) return '#e6a23c'
+  if (usage >= 40) return '#409eff'
+  return '#67c23a'
 }
 
-/**
- * 获取趋势图标
- */
+// 趋势图标
 const cpuTrendIcon = computed(() => {
   if (cpuTrend.value === 'up') return ArrowUp
   if (cpuTrend.value === 'down') return ArrowDown
@@ -250,15 +226,7 @@ const memoryTrendIcon = computed(() => {
   return Minus
 })
 
-const gpuTrendIcon = computed(() => {
-  if (gpuTrend.value === 'up') return ArrowUp
-  if (gpuTrend.value === 'down') return ArrowDown
-  return Minus
-})
-
-/**
- * 获取趋势文本
- */
+// 趋势文本
 const cpuTrendText = computed(() => {
   if (cpuTrend.value === 'up') return '上升'
   if (cpuTrend.value === 'down') return '下降'
@@ -271,15 +239,7 @@ const memoryTrendText = computed(() => {
   return '稳定'
 })
 
-const gpuTrendText = computed(() => {
-  if (gpuTrend.value === 'up') return '上升'
-  if (gpuTrend.value === 'down') return '下降'
-  return '稳定'
-})
-
-/**
- * 计算趋势
- */
+// 计算趋势
 const calculateTrend = (current, previous) => {
   const diff = current - previous
   if (diff > 5) return 'up'
@@ -288,39 +248,49 @@ const calculateTrend = (current, previous) => {
 }
 
 /**
- * 模拟获取系统监控数据
- * 注意：实际应用中应该从后端 API 获取真实数据
+ * 从后端获取真实监控数据
  */
 const fetchMonitorData = async () => {
   try {
-    // 模拟数据 - 实际应用中应该调用后端 API
-    const newCpuUsage = Math.floor(Math.random() * 60) + 20 // 20-80%
-    const newMemoryUsage = (Math.random() * 8 + 4).toFixed(1) // 4-12 GB
-    const newMemoryPercent = Math.floor((newMemoryUsage / 16) * 100) // 假设总内存 16GB
-    const newGpuUsage = Math.floor(Math.random() * 70) + 10 // 10-80%
-    const newGpuMemory = (Math.random() * 6 + 2).toFixed(1) // 2-8 GB
-
-    // 更新趋势
-    cpuTrend.value = calculateTrend(newCpuUsage, previousCpu.value)
-    memoryTrend.value = calculateTrend(newMemoryPercent, previousMemory.value)
-    gpuTrend.value = calculateTrend(newGpuUsage, previousGpu.value)
-
-    // 保存旧值
-    previousCpu.value = cpuUsage.value
-    previousMemory.value = memoryPercent.value
-    previousGpu.value = gpuUsage.value
-
-    // 更新新值
-    cpuUsage.value = newCpuUsage
-    memoryUsage.value = newMemoryUsage
-    memoryPercent.value = newMemoryPercent
-    gpuUsage.value = newGpuUsage
-    gpuMemory.value = newGpuMemory
-
+    // 获取实时统计
+    const stats = await GetRealTimeStats()
+    
+    // 更新CPU
+    if (stats.cpu) {
+      const newCpuUsage = Math.round(stats.cpu.usage_percent || 0)
+      cpuTrend.value = calculateTrend(newCpuUsage, previousCpu.value)
+      previousCpu.value = cpuUsage.value
+      cpuUsage.value = newCpuUsage
+    }
+    
+    // 更新内存
+    if (stats.memory) {
+      memoryUsage.value = (stats.memory.used_gb || 0).toFixed(1)
+      const newMemoryPercent = Math.round(stats.memory.used_percent || 0)
+      memoryTrend.value = calculateTrend(newMemoryPercent, previousMemory.value)
+      previousMemory.value = memoryPercent.value
+      memoryPercent.value = newMemoryPercent
+    }
+    
+    // 更新GPU
+    if (stats.gpu) {
+      gpuAvailable.value = stats.gpu.available || false
+      gpuName.value = stats.gpu.name || ''
+      gpuMemory.value = stats.gpu.memory || ''
+    }
+    
+    // 更新服务状态
+    if (stats.service) {
+      services.value[0].status = stats.service.running ? 'running' : 'stopped'
+      services.value[0].statusText = stats.service.running ? '运行中' : '已停止'
+    }
+    
     // 更新时间
     lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN')
   } catch (error) {
     console.error('获取监控数据失败:', error)
+    // 使用默认值
+    lastUpdateTime.value = new Date().toLocaleTimeString('zh-CN')
   }
 }
 
@@ -340,12 +310,9 @@ const toggleMonitoring = () => {
  * 开始监控
  */
 const startMonitoring = () => {
-  // 每 2 秒刷新一次数据
   refreshInterval.value = setInterval(() => {
     fetchMonitorData()
   }, 2000)
-  
-  // 立即获取一次数据
   fetchMonitorData()
 }
 
@@ -441,12 +408,8 @@ body.dark-theme .monitor-status {
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .monitor-grid {
@@ -497,10 +460,10 @@ body.dark-theme .card-header {
 }
 
 .metric-value {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: #303133;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 body.dark-theme .metric-value {
@@ -508,9 +471,9 @@ body.dark-theme .metric-value {
 }
 
 .metric-sub {
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 body.dark-theme .metric-sub {
@@ -518,8 +481,8 @@ body.dark-theme .metric-sub {
 }
 
 .metric-chart {
-  width: 80px;
-  height: 80px;
+  width: 70px;
+  height: 70px;
 }
 
 .progress-ring {
@@ -560,17 +523,9 @@ body.dark-theme .card-footer {
   color: #909399;
 }
 
-.trend.up {
-  color: #f56c6c;
-}
-
-.trend.down {
-  color: #67c23a;
-}
-
-.trend.stable {
-  color: #909399;
-}
+.trend.up { color: #f56c6c; }
+.trend.down { color: #67c23a; }
+.trend.stable { color: #909399; }
 
 .service-status .card-content {
   align-items: flex-start;
@@ -597,7 +552,7 @@ body.dark-theme .service-item {
 }
 
 .service-name {
-  font-size: 14px;
+  font-size: 13px;
   color: #606266;
 }
 
@@ -626,7 +581,6 @@ body.dark-theme .monitor-controls {
   border-top-color: #3c3c3c;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
   .monitor-grid {
     grid-template-columns: 1fr;

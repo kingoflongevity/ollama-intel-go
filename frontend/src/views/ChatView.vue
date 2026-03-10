@@ -112,12 +112,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { User, ChatDotRound, Promotion, Search, Operation } from '@element-plus/icons-vue'
 import { ListModels } from '../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
+import { useSessionStore } from '@/stores/sessionStore'
+import { useRouter } from 'vue-router'
 
-// 响应式数据
+const router = useRouter()
+const sessionStore = useSessionStore()
+
 const messages = ref([])
 const inputMessage = ref('')
 const isLoading = ref(false)
@@ -131,36 +135,28 @@ const searchQuery = ref('')
 const ws = ref(null)
 const wsConnected = ref(false)
 
-// 存储键名
-const STORAGE_KEY = 'ollama-chat-messages'
+const currentSessionId = computed(() => sessionStore.currentSessionId.value)
 
-// 保存聊天记录到本地存储
 const saveMessages = () => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.value))
-}
-
-// 从本地存储加载聊天记录
-const loadMessages = () => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      messages.value = JSON.parse(stored)
-    }
-  } catch (error) {
-    console.error('加载聊天记录失败:', error)
+  if (currentSessionId.value) {
+    sessionStore.saveMessages(currentSessionId.value, messages.value)
   }
 }
 
-// 格式化消息（支持简单的 Markdown）
+const loadMessages = () => {
+  if (currentSessionId.value) {
+    messages.value = sessionStore.getMessages(currentSessionId.value)
+  } else {
+    messages.value = []
+  }
+}
+
 const formatMessage = (text) => {
-  // 简单的换行处理
   return text.replace(/\n/g, '<br>')
 }
 
-// 连接WebSocket
 const connectWebSocket = () => {
   try {
-    // 构建WebSocket URL，使用新的端口11435以避免与Ollama服务冲突
     const wsUrl = `ws://127.0.0.1:11435/ws/chat`
     ws.value = new WebSocket(wsUrl)
     
@@ -188,50 +184,45 @@ const connectWebSocket = () => {
   }
 }
 
-// 处理WebSocket消息
 const handleWebSocketMessage = (data) => {
   console.log('收到WebSocket消息:', data)
   
   switch (data.type) {
     case 'stream':
-      // 更新AI消息内容
       if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
         messages.value[currentStreamMessageIndex.value] = {
           role: 'assistant',
           content: data.full_content || data.content || '',
           timestamp: new Date().toLocaleTimeString()
         }
-        saveMessages() // 保存聊天记录
+        saveMessages()
       }
       break
     case 'done':
-      // 完成响应
       if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
         messages.value[currentStreamMessageIndex.value] = {
           role: 'assistant',
           content: data.content || '',
           timestamp: new Date().toLocaleTimeString()
         }
-        saveMessages() // 保存聊天记录
+        saveMessages()
       }
       isLoading.value = false
       currentStreamMessageIndex.value = -1
       break
     case 'error':
-      // 错误响应
       if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
         messages.value[currentStreamMessageIndex.value] = {
           role: 'assistant',
           content: data.content || '抱歉，处理您的请求时出现错误。',
           timestamp: new Date().toLocaleTimeString()
         }
-        saveMessages() // 保存聊天记录
+        saveMessages()
       }
       isLoading.value = false
       currentStreamMessageIndex.value = -1
       break
     case 'search':
-      // 搜索结果
       const searchMessage = {
         role: 'search',
         content: data.content || '',
@@ -239,24 +230,36 @@ const handleWebSocketMessage = (data) => {
         timestamp: new Date().toLocaleTimeString()
       }
       messages.value.push(searchMessage)
-      saveMessages() // 保存聊天记录
+      saveMessages()
       break
     case 'role':
-      // 角色信息
       const roleMessage = {
         role: 'system',
         content: data.content || '',
         timestamp: new Date().toLocaleTimeString()
       }
       messages.value.push(roleMessage)
-      saveMessages() // 保存聊天记录
+      saveMessages()
       break
   }
 }
 
-// 发送消息
+/**
+ * 发送消息 - 核心功能
+ * 发送消息时自动创建会话并保存聊天记录
+ */
 const sendMessage = async () => {
   if (!inputMessage.value.trim()) return
+
+  // 确保有当前会话，如果没有则自动创建
+  const sessionId = sessionStore.ensureSession()
+  
+  // 如果是新会话，根据第一条消息自动命名
+  if (messages.value.length === 0) {
+    const firstMsg = inputMessage.value.trim()
+    const sessionName = firstMsg.length > 20 ? firstMsg.substring(0, 20) + '...' : firstMsg
+    sessionStore.renameSession(sessionId, sessionName)
+  }
 
   const userMessage = {
     role: 'user',
@@ -265,12 +268,12 @@ const sendMessage = async () => {
   }
 
   messages.value.push(userMessage)
-  saveMessages() // 保存聊天记录
+  saveMessages()
+  
   const msg = inputMessage.value
   inputMessage.value = ''
   isLoading.value = true
 
-  // 添加AI消息占位符
   const aiMessagePlaceholder = {
     role: 'assistant',
     content: '',
@@ -278,21 +281,17 @@ const sendMessage = async () => {
   }
   currentStreamMessageIndex.value = messages.value.length
   messages.value.push(aiMessagePlaceholder)
-  saveMessages() // 保存聊天记录
+  saveMessages()
+
+  // 更新会话使用的模型
+  sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
   try {
-    // 检查WebSocket连接
     if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
-      // 尝试重新连接
       connectWebSocket()
-      
-      // 等待连接建立
-      await new Promise(resolve => {
-        setTimeout(resolve, 1000)
-      })
+      await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    // 构建请求消息
     const chatRequest = {
       type: 'chat',
       model: selectedModel.value,
@@ -302,34 +301,28 @@ const sendMessage = async () => {
       }))
     }
 
-    // 发送到WebSocket
     if (ws.value && ws.value.readyState === WebSocket.OPEN) {
       ws.value.send(JSON.stringify(chatRequest))
     } else {
-      // 降级为HTTP API
-      console.log('WebSocket不可用，使用HTTP API')
       await sendMessageWithHTTP()
     }
   } catch (error) {
     console.error('发送消息失败:', error)
-    // 更新错误消息
     if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
       messages.value[currentStreamMessageIndex.value] = {
         role: 'assistant',
         content: '抱歉，连接AI服务时出现错误，请稍后重试。',
         timestamp: new Date().toLocaleTimeString()
       }
-      saveMessages() // 保存聊天记录
+      saveMessages()
     }
     isLoading.value = false
     currentStreamMessageIndex.value = -1
   }
 }
 
-// 使用HTTP API发送消息（降级方案）
 const sendMessageWithHTTP = async () => {
   try {
-    // 构建请求
     const request = {
       model: selectedModel.value,
       messages: messages.value.filter(m => m.role !== 'assistant').map(m => ({
@@ -339,20 +332,14 @@ const sendMessageWithHTTP = async () => {
       stream: true
     }
 
-    // 发送请求
     const response = await fetch('http://127.0.0.1:11434/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)
     })
 
-    if (!response.ok) {
-      throw new Error('HTTP请求失败')
-    }
+    if (!response.ok) throw new Error('HTTP请求失败')
 
-    // 处理流式响应
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let fullContent = ''
@@ -366,26 +353,20 @@ const sendMessageWithHTTP = async () => {
 
       for (const line of lines) {
         if (line.trim() === '') continue
-
         try {
           const data = JSON.parse(line)
           if (data.message && data.message.content) {
             fullContent += data.message.content
-
-            // 更新AI消息内容
             if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
               messages.value[currentStreamMessageIndex.value] = {
                 role: 'assistant',
                 content: fullContent,
                 timestamp: new Date().toLocaleTimeString()
               }
-              saveMessages() // 保存聊天记录
+              saveMessages()
             }
           }
-
-          if (data.done) {
-            break
-          }
+          if (data.done) break
         } catch (e) {
           console.error('解析流式响应失败:', e)
         }
@@ -397,7 +378,6 @@ const sendMessageWithHTTP = async () => {
   }
 }
 
-// 处理回车键
 const handleEnter = (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -405,13 +385,11 @@ const handleEnter = (event) => {
   }
 }
 
-// 清空对话
 const clearChat = () => {
   messages.value = []
-  saveMessages() // 保存聊天记录
+  saveMessages()
 }
 
-// 加载模型列表
 const loadModels = async () => {
   try {
     const modelList = await ListModels()
@@ -421,7 +399,6 @@ const loadModels = async () => {
     }
   } catch (error) {
     console.error('加载模型列表失败:', error)
-    // 使用默认模型列表
     models.value = [
       { name: 'llama3:8b' },
       { name: 'mistral:7b' },
@@ -430,62 +407,39 @@ const loadModels = async () => {
   }
 }
 
-// 切换搜索面板
 const toggleSearch = () => {
   showSearch.value = !showSearch.value
 }
 
-// 执行搜索
 const performSearch = async () => {
   if (!searchQuery.value.trim()) return
-
   isLoading.value = true
 
   try {
-    // 检查WebSocket连接
     if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
-      // 尝试重新连接
       connectWebSocket()
-      
-      // 等待连接建立
-      await new Promise(resolve => {
-        setTimeout(resolve, 1000)
-      })
+      await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    // 构建搜索请求
     const searchRequest = {
       type: 'search',
-      messages: [{
-        role: 'user',
-        content: searchQuery.value
-      }]
+      messages: [{ role: 'user', content: searchQuery.value }]
     }
 
-    // 发送到WebSocket
     if (ws.value && ws.value.readyState === WebSocket.OPEN) {
       ws.value.send(JSON.stringify(searchRequest))
     } else {
-      // 显示模拟搜索结果
       const searchMessage = {
         role: 'search',
         content: `搜索结果: ${searchQuery.value}`,
         results: [
-          {
-            title: '搜索结果1',
-            url: 'https://example.com/1',
-            snippet: '这是搜索结果1的摘要信息，包含了关于搜索关键词的相关内容。'
-          },
-          {
-            title: '搜索结果2',
-            url: 'https://example.com/2',
-            snippet: '这是搜索结果2的摘要信息，提供了更多关于搜索关键词的详细内容。'
-          }
+          { title: '搜索结果1', url: 'https://example.com/1', snippet: '这是搜索结果1的摘要信息。' },
+          { title: '搜索结果2', url: 'https://example.com/2', snippet: '这是搜索结果2的摘要信息。' }
         ],
         timestamp: new Date().toLocaleTimeString()
       }
       messages.value.push(searchMessage)
-      saveMessages() // 保存聊天记录
+      saveMessages()
     }
   } catch (error) {
     console.error('搜索失败:', error)
@@ -494,55 +448,40 @@ const performSearch = async () => {
   }
 }
 
-// 处理角色选择
 const handleRoleChange = async () => {
   if (selectedRole.value === 'default') return
 
   try {
-    // 检查WebSocket连接
     if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
-      // 尝试重新连接
       connectWebSocket()
-      
-      // 等待连接建立
-      await new Promise(resolve => {
-        setTimeout(resolve, 1000)
-      })
+      await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    // 构建角色请求
-    const roleRequest = {
-      type: 'role',
-      role: selectedRole.value
-    }
+    const roleRequest = { type: 'role', role: selectedRole.value }
 
-    // 发送到WebSocket
     if (ws.value && ws.value.readyState === WebSocket.OPEN) {
       ws.value.send(JSON.stringify(roleRequest))
     } else {
-      // 显示模拟角色信息
       const rolePrompts = {
-        code: '你是一位专业的代码专家，擅长解决各种编程问题。请提供清晰、高效、可维护的代码解决方案，并附带详细的解释和注释。',
-        video: '你是一位专业的视频脚本编写专家，擅长创作各种类型的视频脚本。请根据用户需求，设计引人入胜的视频内容，包括分镜、台词、视觉效果等详细要素。',
-        writing: '你是一位专业的写作专家，擅长各种文体的创作。请根据用户需求，提供高质量的写作内容，注重结构、逻辑和表达效果。',
-        business: '你是一位专业的商业顾问，擅长分析商业问题和提供战略建议。请根据用户需求，提供专业、实用的商业解决方案。',
-        education: '你是一位专业的教育专家，擅长设计教学内容和解答学习问题。请根据用户需求，提供清晰、易懂、有深度的教育内容。'
+        code: '你是一位专业的代码专家，擅长解决各种编程问题。',
+        video: '你是一位专业的视频脚本编写专家。',
+        writing: '你是一位专业的写作专家。',
+        business: '你是一位专业的商业顾问。',
+        education: '你是一位专业的教育专家。'
       }
-
       const roleMessage = {
         role: 'system',
         content: rolePrompts[selectedRole.value] || '已切换到指定角色',
         timestamp: new Date().toLocaleTimeString()
       }
       messages.value.push(roleMessage)
-      saveMessages() // 保存聊天记录
+      saveMessages()
     }
   } catch (error) {
     console.error('角色切换失败:', error)
   }
 }
 
-// 滚动到底部
 const scrollToBottom = async () => {
   await nextTick()
   if (messagesContainerRef.value) {
@@ -550,40 +489,38 @@ const scrollToBottom = async () => {
   }
 }
 
-// 监听消息变化，自动滚动
-watch(messages, () => {
-  scrollToBottom()
-}, { deep: true })
+watch(messages, () => scrollToBottom(), { deep: true })
+watch(isLoading, () => scrollToBottom())
 
-// 监听加载状态，自动滚动
-watch(isLoading, () => {
-  scrollToBottom()
+// 监听会话切换
+watch(currentSessionId, (newId, oldId) => {
+  if (newId !== oldId) {
+    loadMessages()
+  }
 })
 
-// 初始化
 onMounted(() => {
   loadModels()
-  loadMessages() // 从本地存储加载聊天记录
-  
-  // 连接WebSocket
+  loadMessages()
   connectWebSocket()
   
-  // 监听聊天流式事件（兼容旧版HTTP API）
   EventsOn('chat_stream', (eventData) => {
-    console.log('收到聊天流式事件:', eventData)
-    
-    // 更新AI消息内容
     if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
       messages.value[currentStreamMessageIndex.value] = {
         role: 'assistant',
         content: eventData.full_content || eventData.content || '',
         timestamp: new Date().toLocaleTimeString()
       }
-      saveMessages() // 保存聊天记录
+      saveMessages()
     }
   })
   
-  // 如果没有聊天记录，添加欢迎消息
+  // 监听会话切换事件
+  window.addEventListener('sessionChanged', (event) => {
+    loadMessages()
+  })
+  
+  // 如果没有消息，显示欢迎消息
   if (messages.value.length === 0) {
     setTimeout(() => {
       const welcomeMessage = {
@@ -592,19 +529,15 @@ onMounted(() => {
         timestamp: new Date().toLocaleTimeString()
       }
       messages.value.push(welcomeMessage)
-      saveMessages() // 保存聊天记录
+      saveMessages()
     }, 500)
   }
 })
 
-// 组件卸载时清理事件监听
 onUnmounted(() => {
   EventsOff('chat_stream')
-  
-  // 关闭WebSocket连接
-  if (ws.value) {
-    ws.value.close()
-  }
+  if (ws.value) ws.value.close()
+  window.removeEventListener('sessionChanged', () => {})
 })
 </script>
 
@@ -752,23 +685,12 @@ body.dark-theme .typing-indicator {
   animation: typing 1.4s infinite ease-in-out both;
 }
 
-.typing-indicator span:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.typing-indicator span:nth-child(2) {
-  animation-delay: -0.16s;
-}
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
 
 @keyframes typing {
-  0%, 80%, 100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+  40% { transform: scale(1.2); opacity: 1; }
 }
 
 .chat-input-area {
@@ -798,5 +720,16 @@ body.dark-theme .el-textarea :deep(.el-textarea__inner) {
   border-color: #4a4a4a;
   background: #2d2d2d;
   color: #e4e6eb;
+}
+
+.search-input-area {
+  padding: 12px 20px;
+  border-top: 1px solid #e4e7ed;
+  background: #fafafa;
+}
+
+body.dark-theme .search-input-area {
+  background: #2d2d2d;
+  border-top-color: #3c3c3c;
 }
 </style>

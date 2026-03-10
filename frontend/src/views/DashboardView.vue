@@ -2,18 +2,62 @@
   <div class="dashboard">
     <!-- 顶部状态栏 -->
     <div class="status-bar">
-      <StatusCard title="Ollama" :value="environmentInfo.ollama_version || 'unknown'" />
-      <StatusCard title="GPU" :value="environmentInfo.gpu_status || 'unknown'" :status="environmentInfo.gpu_status && environmentInfo.gpu_status.includes('Available') ? 'ok' : ''" />
-      <StatusCard title="Intel GPU" :value="environmentInfo.memory_usage || 'unknown'" />
-      <StatusCard title="Service" :value="environmentInfo.service_status || 'unknown'" :status="environmentInfo.service_status === 'running' ? 'ok' : ''" />
+      <StatusCard title="Ollama 版本" :value="environmentInfo.ollama_version || 'unknown'" icon="Monitor" />
+      <StatusCard title="GPU 状态" :value="gpuStatusText" :status="gpuStatusOk ? 'ok' : 'warning'" icon="Cpu" />
+      <StatusCard title="内存使用" :value="environmentInfo.memory_usage || 'unknown'" icon="Memo" />
+      <StatusCard title="服务状态" :value="serviceStatusText" :status="serviceStatusOk ? 'ok' : 'error'" icon="Connection" />
     </div>
 
     <!-- 主区域 -->
     <div class="main-grid">
       <div class="left-panel">
+        <!-- Ollama 功能卡片 -->
+        <div class="feature-cards">
+          <div class="feature-card" @click="navigateTo('/chat')">
+            <div class="feature-icon chat">
+              <el-icon size="28"><ChatDotRound /></el-icon>
+            </div>
+            <div class="feature-info">
+              <h4>AI 对话</h4>
+              <p>与AI模型进行智能对话</p>
+            </div>
+          </div>
+          <div class="feature-card" @click="navigateTo('/models')">
+            <div class="feature-icon models">
+              <el-icon size="28"><Box /></el-icon>
+            </div>
+            <div class="feature-info">
+              <h4>模型管理</h4>
+              <p>管理本地已下载的模型</p>
+            </div>
+          </div>
+          <div class="feature-card" @click="navigateTo('/online')">
+            <div class="feature-icon online">
+              <el-icon size="28"><Download /></el-icon>
+            </div>
+            <div class="feature-info">
+              <h4>在线模型</h4>
+              <p>浏览和下载新模型</p>
+            </div>
+          </div>
+          <div class="feature-card" @click="navigateTo('/settings')">
+            <div class="feature-icon settings">
+              <el-icon size="28"><Setting /></el-icon>
+            </div>
+            <div class="feature-info">
+              <h4>系统设置</h4>
+              <p>配置环境和参数</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 控制面板 -->
         <ControlPanel />
+        
+        <!-- 活动面板 -->
         <ActivityPanel :recentChats="recentChats" />
       </div>
+      
       <div class="right-panel">
         <RealTimeMonitor />
       </div>
@@ -22,23 +66,50 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ChatDotRound, Box, Download, Setting } from '@element-plus/icons-vue'
 import StatusCard from '@/components/StatusCard.vue'
 import ControlPanel from '@/components/ControlPanel.vue'
 import ActivityPanel from '@/components/ActivityPanel.vue'
 import RealTimeMonitor from '@/components/RealTimeMonitor.vue'
-import { GetEnvironmentInfo, GetStats } from '../../wailsjs/go/main/App'
+import { GetEnvironmentInfo, GetStats, GetServiceStatus } from '../../wailsjs/go/main/App'
 
-// 响应式数据
+const router = useRouter()
+
 const environmentInfo = ref({})
 const stats = ref({})
-const recentChats = ref([
-  { id: 1, content: '关于 Python 编程的讨论' },
-  { id: 2, content: '如何使用 Vue.js 构建应用' },
-  { id: 3, content: '机器学习模型训练技巧' }
-])
+const serviceStatus = ref({})
+const recentChats = ref([])
 
-// 加载环境信息
+// 计算属性
+const gpuStatusText = computed(() => {
+  const status = environmentInfo.value.gpu_status || ''
+  if (status.includes('Available') || status.includes('Running')) {
+    return 'GPU 可用'
+  }
+  return status || '检测中...'
+})
+
+const gpuStatusOk = computed(() => {
+  const status = environmentInfo.value.gpu_status || ''
+  return status.includes('Available') || status.includes('Running') || status.includes('Detected')
+})
+
+const serviceStatusText = computed(() => {
+  return serviceStatus.value.running ? '运行中' : '已停止'
+})
+
+const serviceStatusOk = computed(() => {
+  return serviceStatus.value.running === true
+})
+
+// 导航方法
+const navigateTo = (path) => {
+  router.push(path)
+}
+
+// 加载数据
 const loadEnvironmentInfo = async () => {
   try {
     const info = await GetEnvironmentInfo()
@@ -48,7 +119,6 @@ const loadEnvironmentInfo = async () => {
   }
 }
 
-// 加载统计信息
 const loadStats = async () => {
   try {
     const s = await GetStats()
@@ -58,14 +128,51 @@ const loadStats = async () => {
   }
 }
 
+const loadServiceStatus = async () => {
+  try {
+    const status = await GetServiceStatus()
+    serviceStatus.value = status
+  } catch (error) {
+    console.error('加载服务状态失败:', error)
+  }
+}
+
+// 加载最近会话
+const loadRecentChats = () => {
+  try {
+    const stored = localStorage.getItem('ollama-chat-sessions')
+    if (stored) {
+      const sessions = JSON.parse(stored)
+      recentChats.value = sessions.slice(0, 5).map(s => ({
+        id: s.id,
+        content: s.preview || s.name,
+        time: s.updatedAt
+      }))
+    }
+  } catch (error) {
+    console.error('加载最近会话失败:', error)
+  }
+}
+
+let refreshInterval = null
+
 onMounted(() => {
   loadEnvironmentInfo()
   loadStats()
+  loadServiceStatus()
+  loadRecentChats()
   
-  // 定期刷新环境信息
-  setInterval(() => {
+  // 定期刷新
+  refreshInterval = setInterval(() => {
     loadEnvironmentInfo()
+    loadServiceStatus()
   }, 5000)
+})
+
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
 })
 </script>
 
@@ -74,8 +181,9 @@ onMounted(() => {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   height: 100%;
+  overflow-y: auto;
 }
 
 .status-bar {
@@ -86,8 +194,8 @@ onMounted(() => {
 
 .main-grid {
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 24px;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
   flex: 1;
   min-height: 0;
 }
@@ -95,13 +203,96 @@ onMounted(() => {
 .left-panel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   flex: 1;
   min-height: 0;
 }
 
 .right-panel {
   height: 100%;
+  min-height: 500px;
+}
+
+/* 功能卡片 */
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.feature-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-color: var(--accent-primary, #06b6d4);
+}
+
+body.dark-theme .feature-card {
+  background: #1e1e1e;
+  border-color: #3c3c3c;
+}
+
+body.dark-theme .feature-card:hover {
+  border-color: var(--accent-primary, #06b6d4);
+}
+
+.feature-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.feature-icon.chat {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+}
+
+.feature-icon.models {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.feature-icon.online {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.feature-icon.settings {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.feature-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #303133;
+}
+
+body.dark-theme .feature-info h4 {
+  color: #e4e6eb;
+}
+
+.feature-info p {
+  margin: 0;
+  font-size: 13px;
+  color: #909399;
+}
+
+body.dark-theme .feature-info p {
+  color: #718096;
 }
 
 /* 响应式布局 */
@@ -111,7 +302,14 @@ onMounted(() => {
   }
   
   .right-panel {
-    height: 400px;
+    height: auto;
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .feature-cards {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -123,6 +321,10 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .status-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .feature-cards {
     grid-template-columns: 1fr;
   }
 }
