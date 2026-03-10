@@ -1,5 +1,8 @@
 <template>
   <div class="app-wrapper">
+    <!-- 错误通知组件 -->
+    <ErrorNotification ref="errorNotificationRef" />
+    
     <!-- 顶部导航栏 -->
     <el-header class="app-header glass-card">
       <div class="header-content">
@@ -36,6 +39,10 @@
             <el-icon><ChatLineRound /></el-icon>
             <span>聊天</span>
           </el-menu-item>
+          <el-menu-item index="/chat-sessions" class="menu-item">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>会话管理</span>
+          </el-menu-item>
           <el-menu-item index="/models" class="menu-item">
             <el-icon><Files /></el-icon>
             <span>模型管理</span>
@@ -68,12 +75,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   Monitor, Moon, Sunny, Setting, House, 
-  ChatLineRound, Files, Connection,
+  ChatLineRound, ChatDotRound, Files, Connection,
   Document
 } from '@element-plus/icons-vue'
+import ErrorNotification from '@/components/ErrorNotification.vue'
 
 const router = useRouter()
-const isDark = ref(true) // 默认使用深色主题
+const isDark = ref(true)
+const errorNotificationRef = ref(null)
 
 const toggleTheme = () => {
   isDark.value = !isDark.value
@@ -86,7 +95,6 @@ const showSettings = () => {
 }
 
 onMounted(() => {
-  // 初始化主题为深色
   document.body.classList.add('dark-theme')
 })
 </script>

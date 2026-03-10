@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
 import ChatView from '@/views/ChatView.vue'
+import ChatSessionsView from '@/views/ChatSessionsView.vue'
 import ModelsView from '@/views/ModelsView.vue'
 import OnlineModelsView from '@/views/OnlineModelsView.vue'
 import SettingsView from '@/views/SettingsView.vue'
@@ -20,6 +21,11 @@ const routes = [
     path: '/chat',
     name: 'Chat',
     component: ChatView
+  },
+  {
+    path: '/chat-sessions',
+    name: 'ChatSessions',
+    component: ChatSessionsView
   },
   {
     path: '/models',

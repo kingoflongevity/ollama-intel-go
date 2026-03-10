@@ -7,19 +7,92 @@
           v-model="searchQuery"
           placeholder="搜索在线模型..."
           prefix-icon="Search"
-          style="width: 300px;"
+          style="width: 250px;"
           clearable
+          @input="handleSearchDebounced"
         />
+        <el-select
+          v-model="filterType"
+          placeholder="模型类型"
+          clearable
+          style="width: 140px;"
+          @change="applyFilters"
+        >
+          <el-option label="全部类型" value="" />
+          <el-option label="文本生成" value="text" />
+          <el-option label="代码生成" value="code" />
+          <el-option label="多模态" value="multimodal" />
+          <el-option label="嵌入模型" value="embedding" />
+        </el-select>
+        <el-select
+          v-model="filterSize"
+          placeholder="参数规模"
+          clearable
+          style="width: 140px;"
+          @change="applyFilters"
+        >
+          <el-option label="全部规模" value="" />
+          <el-option label="小型 (<1B)" value="small" />
+          <el-option label="中型 (1B-10B)" value="medium" />
+          <el-option label="大型 (10B-70B)" value="large" />
+          <el-option label="超大 (>70B)" value="xlarge" />
+        </el-select>
+        <el-select
+          v-model="sortBy"
+          placeholder="排序方式"
+          style="width: 150px;"
+          @change="applyFilters"
+        >
+          <el-option label="默认排序" value="default" />
+          <el-option label="名称 A-Z" value="name_asc" />
+          <el-option label="名称 Z-A" value="name_desc" />
+          <el-option label="大小升序" value="size_asc" />
+          <el-option label="大小降序" value="size_desc" />
+          <el-option label="参数量升序" value="params_asc" />
+          <el-option label="参数量降序" value="params_desc" />
+        </el-select>
       </div>
     </div>
 
+    <!-- 筛选标签 -->
+    <div class="filter-tags" v-if="hasActiveFilters">
+      <span class="filter-label">当前筛选:</span>
+      <el-tag
+        v-if="searchQuery"
+        closable
+        @close="clearSearch"
+        type="info"
+      >
+        搜索: {{ searchQuery }}
+      </el-tag>
+      <el-tag
+        v-if="filterType"
+        closable
+        @close="filterType = ''"
+        type="primary"
+      >
+        类型: {{ getTypeLabel(filterType) }}
+      </el-tag>
+      <el-tag
+        v-if="filterSize"
+        closable
+        @close="filterSize = ''"
+        type="success"
+      >
+        规模: {{ getSizeLabel(filterSize) }}
+      </el-tag>
+      <el-button link type="primary" @click="clearAllFilters">
+        清除全部
+      </el-button>
+    </div>
+
     <el-table
-      :data="onlineModels"
+      :data="filteredAndSortedModels"
       v-loading="loading"
       class="models-table"
       row-key="name"
     >
-      <el-table-column prop="name" label="模型名称" width="200">
+      <el-table-column prop="name" label="模型名称" width="200" sortable>
         <template #default="{ row }">
           <div class="model-name-cell">
             <el-icon><Box /></el-icon>
@@ -28,13 +101,27 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="description" label="描述" min-width="300" />
+      <el-table-column prop="description" label="描述" min-width="250" />
       
-      <el-table-column prop="size" label="大小" width="120" />
-      
-      <el-table-column label="参数规模" width="120">
+      <el-table-column prop="size" label="大小" width="100" sortable>
         <template #default="{ row }">
-          {{ row.details?.parameter_size || '-' }}
+          <el-tag size="small" type="info">{{ row.size }}</el-tag>
+        </template>
+      </el-table-column>
+      
+      <el-table-column label="参数规模" width="120" sortable>
+        <template #default="{ row }">
+          <el-tag size="small" :type="getParamSizeType(row.details?.parameter_size)">
+            {{ row.details?.parameter_size || '-' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="类型" width="100">
+        <template #default="{ row }">
+          <el-tag size="small" :type="getModelTypeTag(row)">
+            {{ getModelTypeLabel(row) }}
+          </el-tag>
         </template>
       </el-table-column>
       
@@ -146,6 +233,9 @@ import { ElMessage } from 'element-plus'
 const onlineModels = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
+const filterType = ref('')
+const filterSize = ref('')
+const sortBy = ref('default')
 const detailDialogVisible = ref(false)
 const selectedModel = ref(null)
 // 分页相关
@@ -162,16 +252,211 @@ const pullCurrentTask = ref('')
 const pullError = ref('')
 const currentPullModel = ref('')
 
-// 监听搜索关键词变化
-watch(searchQuery, async (newQuery) => {
-  // 重置页码
+// 搜索防抖定时器
+let searchDebounceTimer = null
+
+/**
+ * 是否有激活的筛选条件
+ */
+const hasActiveFilters = computed(() => {
+  return searchQuery.value || filterType.value || filterSize.value
+})
+
+/**
+ * 解析参数大小（返回数值，单位为 B）
+ */
+const parseParamSize = (sizeStr) => {
+  if (!sizeStr) return 0
+  const match = sizeStr.match(/(\d+(?:\.\d+)?)/i)
+  if (!match) return 0
+  const num = parseFloat(match[1])
+  if (sizeStr.toLowerCase().includes('m')) return num / 1000 // M -> B
+  return num
+}
+
+/**
+ * 解析文件大小（返回字节数）
+ */
+const parseFileSize = (sizeStr) => {
+  if (!sizeStr) return 0
+  const match = sizeStr.match(/(\d+(?:\.\d+)?)/i)
+  if (!match) return 0
+  const num = parseFloat(match[1])
+  if (sizeStr.toLowerCase().includes('gb')) return num * 1024 * 1024 * 1024
+  if (sizeStr.toLowerCase().includes('mb')) return num * 1024 * 1024
+  if (sizeStr.toLowerCase().includes('kb')) return num * 1024
+  return num
+}
+
+/**
+ * 获取参数规模分类
+ */
+const getParamSizeCategory = (sizeStr) => {
+  const size = parseParamSize(sizeStr)
+  if (size < 1) return 'small'
+  if (size < 10) return 'medium'
+  if (size < 70) return 'large'
+  return 'xlarge'
+}
+
+/**
+ * 获取参数规模标签类型
+ */
+const getParamSizeType = (sizeStr) => {
+  const category = getParamSizeCategory(sizeStr)
+  switch (category) {
+    case 'small': return 'success'
+    case 'medium': return 'primary'
+    case 'large': return 'warning'
+    case 'xlarge': return 'danger'
+    default: return 'info'
+  }
+}
+
+/**
+ * 获取模型类型
+ */
+const getModelType = (model) => {
+  const name = model.name?.toLowerCase() || ''
+  const desc = model.description?.toLowerCase() || ''
+  
+  if (name.includes('code') || name.includes('codellama') || name.includes('starcoder') || 
+      desc.includes('code') || desc.includes('programming')) {
+    return 'code'
+  }
+  if (name.includes('clip') || name.includes('llava') || name.includes('vision') ||
+      desc.includes('multimodal') || desc.includes('vision')) {
+    return 'multimodal'
+  }
+  if (name.includes('embed') || name.includes('nomic-embed') || name.includes('all-minilm') ||
+      desc.includes('embedding') || desc.includes('vector')) {
+    return 'embedding'
+  }
+  return 'text'
+}
+
+/**
+ * 获取模型类型标签
+ */
+const getModelTypeTag = (model) => {
+  const type = getModelType(model)
+  switch (type) {
+    case 'code': return 'warning'
+    case 'multimodal': return 'danger'
+    case 'embedding': return 'success'
+    default: return 'primary'
+  }
+}
+
+/**
+ * 获取模型类型标签文本
+ */
+const getModelTypeLabel = (model) => {
+  const type = getModelType(model)
+  switch (type) {
+    case 'code': return '代码'
+    case 'multimodal': return '多模态'
+    case 'embedding': return '嵌入'
+    default: return '文本'
+  }
+}
+
+/**
+ * 获取类型标签文本
+ */
+const getTypeLabel = (type) => {
+  switch (type) {
+    case 'text': return '文本生成'
+    case 'code': return '代码生成'
+    case 'multimodal': return '多模态'
+    case 'embedding': return '嵌入模型'
+    default: return type
+  }
+}
+
+/**
+ * 获取规模标签文本
+ */
+const getSizeLabel = (size) => {
+  switch (size) {
+    case 'small': return '小型 (<1B)'
+    case 'medium': return '中型 (1B-10B)'
+    case 'large': return '大型 (10B-70B)'
+    case 'xlarge': return '超大 (>70B)'
+    default: return size
+  }
+}
+
+/**
+ * 筛选和排序后的模型列表
+ */
+const filteredAndSortedModels = computed(() => {
+  let result = [...onlineModels.value]
+  
+  // 按类型筛选
+  if (filterType.value) {
+    result = result.filter(model => getModelType(model) === filterType.value)
+  }
+  
+  // 按参数规模筛选
+  if (filterSize.value) {
+    result = result.filter(model => {
+      const category = getParamSizeCategory(model.details?.parameter_size)
+      return category === filterSize.value
+    })
+  }
+  
+  // 排序
+  switch (sortBy.value) {
+    case 'name_asc':
+      result.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      break
+    case 'name_desc':
+      result.sort((a, b) => (b.name || '').localeCompare(a.name || ''))
+      break
+    case 'size_asc':
+      result.sort((a, b) => parseFileSize(a.size) - parseFileSize(b.size))
+      break
+    case 'size_desc':
+      result.sort((a, b) => parseFileSize(b.size) - parseFileSize(a.size))
+      break
+    case 'params_asc':
+      result.sort((a, b) => parseParamSize(a.details?.parameter_size) - parseParamSize(b.details?.parameter_size))
+      break
+    case 'params_desc':
+      result.sort((a, b) => parseParamSize(b.details?.parameter_size) - parseParamSize(a.details?.parameter_size))
+      break
+    default:
+      // 默认排序保持原顺序
+      break
+  }
+  
+  return result
+})
+
+/**
+ * 防抖搜索处理
+ */
+const handleSearchDebounced = () => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = setTimeout(() => {
+    performSearch()
+  }, 300)
+}
+
+/**
+ * 执行搜索
+ */
+const performSearch = async () => {
   currentPage.value = 1
   onlineModels.value = []
   hasMore.value = true
   
   loading.value = true
   try {
-    const results = await SearchOnlineModels(newQuery, currentPage.value, pageSize.value)
+    const results = await SearchOnlineModels(searchQuery.value, currentPage.value, pageSize.value)
     onlineModels.value = results.models
     total.value = results.total
     hasMore.value = onlineModels.value.length < results.total
@@ -181,11 +466,37 @@ watch(searchQuery, async (newQuery) => {
   } finally {
     loading.value = false
   }
-})
+}
+
+/**
+ * 应用筛选
+ */
+const applyFilters = () => {
+  // 筛选是在前端进行的，不需要重新请求数据
+  // 这里可以添加额外的逻辑，如统计筛选结果数量等
+}
+
+/**
+ * 清除搜索
+ */
+const clearSearch = () => {
+  searchQuery.value = ''
+  loadOnlineModels()
+}
+
+/**
+ * 清除所有筛选
+ */
+const clearAllFilters = () => {
+  searchQuery.value = ''
+  filterType.value = ''
+  filterSize.value = ''
+  sortBy.value = 'default'
+  loadOnlineModels()
+}
 
 // 加载在线模型列表
 const loadOnlineModels = async () => {
-  // 重置页码
   currentPage.value = 1
   onlineModels.value = []
   hasMore.value = true
@@ -219,14 +530,12 @@ const loadMoreModels = async () => {
       results = await GetOnlineModels(currentPage.value, pageSize.value)
     }
     
-    // 将新模型添加到现有列表
     onlineModels.value = [...onlineModels.value, ...results.models]
     total.value = results.total
     hasMore.value = onlineModels.value.length < results.total
   } catch (error) {
     console.error('加载更多模型失败:', error)
     ElMessage.error('加载更多模型失败: ' + error.message)
-    // 加载失败时恢复页码
     currentPage.value--
   } finally {
     loading.value = false
@@ -236,7 +545,6 @@ const loadMoreModels = async () => {
 // 重新加载本地模型列表
 const reloadLocalModels = async () => {
   try {
-    // 触发一个全局事件通知ModelsView组件重新加载
     window.dispatchEvent(new CustomEvent('localModelsUpdated'))
     console.log('本地模型列表已更新，通知ModelsView组件重新加载')
   } catch (error) {
@@ -251,8 +559,6 @@ const pullProgressFormat = (percentage) => {
 
 // 取消拉取
 const cancelPull = () => {
-  // 这里可以添加取消拉取的逻辑
-  // 目前后端没有提供取消拉取的API，所以只是关闭对话框
   detailDialogVisible.value = false
   resetPullState()
 }
@@ -273,17 +579,14 @@ const setupPullProgressListener = () => {
   EventsOn('model_pull_progress', (eventData) => {
     const { model, status, progress, message, time } = eventData
     
-    // 只处理当前正在拉取的模型
     if (model !== currentPullModel.value) {
       return
     }
     
-    // 更新进度
     if (progress >= 0) {
       pullProgress.value = Math.round(progress)
     }
     
-    // 更新状态
     switch (status) {
       case 'started':
         pullStatus.value = ''
@@ -300,10 +603,9 @@ const setupPullProgressListener = () => {
         pullStatusText.value = '拉取完成'
         pullCurrentTask.value = message
         pullProgress.value = 100
-        // 拉取完成后通知本地模型列表更新
         setTimeout(() => {
           reloadLocalModels()
-        }, 1000) // 延迟1秒，确保模型已完全安装
+        }, 2000)
         break
       case 'error':
         pullStatus.value = 'exception'
@@ -331,7 +633,6 @@ const confirmPullModel = async (modelName) => {
   
   try {
     await PullModel(modelName)
-    // 拉取已经开始，不需要关闭对话框，等待进度更新
   } catch (error) {
     console.error('拉取模型失败:', error)
     pullStatus.value = 'exception'
@@ -371,6 +672,8 @@ body.dark-theme .online-models-container {
   padding: 20px;
   border-bottom: 1px solid #e4e7ed;
   background: #fafafa;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 body.dark-theme .models-header {
@@ -390,6 +693,31 @@ body.dark-theme .models-header h2 {
 .header-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+  flex-wrap: wrap;
+}
+
+body.dark-theme .filter-tags {
+  background: #252525;
+  border-bottom-color: #3c3c3c;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: #606266;
+}
+
+body.dark-theme .filter-label {
+  color: #a0aec0;
 }
 
 .models-table {
@@ -472,5 +800,30 @@ body.dark-theme .models-table :deep(.el-table__row:hover) {
 body.dark-theme .models-table :deep(.el-table__empty-block) {
   background-color: #1e1e1e !important;
   color: #a0aec0 !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 768px) {
+  .models-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+  
+  .header-actions .el-input,
+  .header-actions .el-select {
+    width: 100% !important;
+  }
 }
 </style>

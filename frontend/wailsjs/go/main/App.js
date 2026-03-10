@@ -34,6 +34,10 @@ export function GetOnlineModels(arg1, arg2) {
   return window['go']['main']['App']['GetOnlineModels'](arg1, arg2);
 }
 
+export function GetRealTimeStats() {
+  return window['go']['main']['App']['GetRealTimeStats']();
+}
+
 export function GetServiceStatus() {
   return window['go']['main']['App']['GetServiceStatus']();
 }

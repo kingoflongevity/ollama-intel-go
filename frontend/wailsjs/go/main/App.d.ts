@@ -20,6 +20,8 @@ export function GetOllamaPath():Promise<Record<string, any>>;
 
 export function GetOnlineModels(arg1:number,arg2:number):Promise<Record<string, any>>;
 
+export function GetRealTimeStats():Promise<Record<string, any>>;
+
 export function GetServiceStatus():Promise<Record<string, any>>;
 
 export function GetStats():Promise<Record<string, any>>;

@@ -259,10 +259,8 @@ const setupPullProgressListener = () => {
         pullStatusText.value = '拉取完成'
         pullCurrentTask.value = message
         pullProgress.value = 100
-        // 拉取完成后重新加载模型列表
-        setTimeout(() => {
-          loadModels()
-        }, 1000) // 延迟1秒，确保模型已完全安装
+        // 拉取完成后重新加载模型列表，增加延迟并添加重试机制
+        loadModelsWithRetry()
         break
       case 'error':
         pullStatus.value = 'exception'
@@ -285,6 +283,49 @@ const loadModels = async () => {
     ElMessage.error('加载模型列表失败')
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * 带重试机制的模型列表加载函数
+ * 在模型拉取完成后调用，确保模型列表能够正确刷新
+ * @param maxRetries 最大重试次数，默认3次
+ * @param delay 初始延迟时间（毫秒），默认2000ms
+ */
+const loadModelsWithRetry = async (maxRetries = 3, delay = 2000) => {
+  let retryCount = 0
+  
+  const attemptLoad = async () => {
+    try {
+      retryCount++
+      console.log(`尝试加载模型列表 (第 ${retryCount} 次)...`)
+      await loadModels()
+      console.log('模型列表加载成功')
+      return true
+    } catch (error) {
+      console.error(`第 ${retryCount} 次加载失败:`, error)
+      return false
+    }
+  }
+  
+  // 延迟后首次尝试
+  await new Promise(resolve => setTimeout(resolve, delay))
+  
+  const success = await attemptLoad()
+  
+  // 如果首次尝试失败，进行重试
+  if (!success && retryCount < maxRetries) {
+    for (let i = retryCount; i < maxRetries; i++) {
+      // 每次重试增加延迟时间
+      const retryDelay = delay + (i * 1000)
+      console.log(`将在 ${retryDelay}ms 后进行第 ${i + 1} 次重试...`)
+      await new Promise(resolve => setTimeout(resolve, retryDelay))
+      
+      const retrySuccess = await attemptLoad()
+      if (retrySuccess) {
+        break
+      }
+    }
   }
 }
 

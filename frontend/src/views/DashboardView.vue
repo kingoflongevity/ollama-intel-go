@@ -10,21 +10,23 @@
 
     <!-- 主区域 -->
     <div class="main-grid">
-      <ControlPanel />
-      <ActivityPanel :recentChats="recentChats" />
+      <div class="left-panel">
+        <ControlPanel />
+        <ActivityPanel :recentChats="recentChats" />
+      </div>
+      <div class="right-panel">
+        <RealTimeMonitor />
+      </div>
     </div>
-
-    <!-- 监控区域 -->
-    <MonitorPanel :stats="stats" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import StatusCard from '../components/StatusCard.vue'
-import ControlPanel from '../components/ControlPanel.vue'
-import ActivityPanel from '../components/ActivityPanel.vue'
-import MonitorPanel from '../components/MonitorPanel.vue'
+import StatusCard from '@/components/StatusCard.vue'
+import ControlPanel from '@/components/ControlPanel.vue'
+import ActivityPanel from '@/components/ActivityPanel.vue'
+import RealTimeMonitor from '@/components/RealTimeMonitor.vue'
 import { GetEnvironmentInfo, GetStats } from '../../wailsjs/go/main/App'
 
 // 响应式数据
@@ -32,9 +34,8 @@ const environmentInfo = ref({})
 const stats = ref({})
 const recentChats = ref([
   { id: 1, content: '关于 Python 编程的讨论' },
-  { id: 2, content: '如何使用 Ollama 模型' },
-  { id: 3, content: '系统监控配置' },
-  { id: 4, content: '模型拉取问题' }
+  { id: 2, content: '如何使用 Vue.js 构建应用' },
+  { id: 3, content: '机器学习模型训练技巧' }
 ])
 
 // 加载环境信息
@@ -50,60 +51,57 @@ const loadEnvironmentInfo = async () => {
 // 加载统计信息
 const loadStats = async () => {
   try {
-    const data = await GetStats()
-    stats.value = data
+    const s = await GetStats()
+    stats.value = s
   } catch (error) {
     console.error('加载统计信息失败:', error)
   }
 }
 
-// 初始化
 onMounted(() => {
-  console.log('Dashboard mounted')
   loadEnvironmentInfo()
   loadStats()
   
-  // 每5秒刷新一次数据
+  // 定期刷新环境信息
   setInterval(() => {
     loadEnvironmentInfo()
-    loadStats()
   }, 5000)
 })
 </script>
 
 <style scoped>
-/* 主容器 */
 .dashboard {
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  width: 100%;
-  padding: 32px;
-  max-width: 1440px;
-  margin: 0 auto;
-  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-  min-height: 100vh;
+  height: 100%;
 }
 
-/* 暗色主题 */
-body.dark-theme .dashboard {
-  background: linear-gradient(135deg, rgba(10, 17, 40, 0.95), rgba(18, 30, 58, 0.95));
-}
-
-/* 顶部状态栏 */
 .status-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
+  gap: 16px;
 }
 
-/* 主区域 */
 .main-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 400px;
   gap: 24px;
-  margin-bottom: 32px;
+  flex: 1;
+  min-height: 0;
+}
+
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.right-panel {
+  height: 100%;
 }
 
 /* 响应式布局 */
@@ -111,42 +109,21 @@ body.dark-theme .dashboard {
   .main-grid {
     grid-template-columns: 1fr;
   }
+  
+  .right-panel {
+    height: 400px;
+  }
 }
 
 @media (max-width: 1400px) {
   .status-bar {
     grid-template-columns: repeat(2, 1fr);
   }
-  
-  .main-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 1200px) {
-  .status-bar {
-    grid-template-columns: 1fr;
-  }
-  
-  .main-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 768px) {
-  .dashboard {
-    padding: 20px;
-    gap: 20px;
-  }
-  
   .status-bar {
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  
-  .main-grid {
-    gap: 20px;
-    margin-bottom: 20px;
+    grid-template-columns: 1fr;
   }
 }
 </style>
