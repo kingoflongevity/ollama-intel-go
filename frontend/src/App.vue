@@ -91,8 +91,41 @@ const showSettings = () => {
   router.push('/settings')
 }
 
+const takeScreenshot = (pageName) => {
+  // 这里需要实现截图功能
+  console.log(`Taking screenshot of ${pageName}`)
+}
+
 onMounted(() => {
   document.body.classList.add('dark-theme')
+  
+  // 自动导航到各个页面进行截图
+  const pages = [
+    { path: '/dashboard', name: 'dashboard' },
+    { path: '/chat', name: 'chat' },
+    { path: '/chat-sessions', name: 'chat-sessions' },
+    { path: '/models', name: 'models' },
+    { path: '/online', name: 'online' },
+    { path: '/logs', name: 'logs' },
+    { path: '/settings', name: 'settings' }
+  ]
+  let currentIndex = 0
+  
+  const navigateToNextPage = () => {
+    if (currentIndex < pages.length) {
+      const page = pages[currentIndex]
+      router.push(page.path)
+      // 给页面足够的加载时间，然后进行截图
+      setTimeout(() => {
+        takeScreenshot(page.name)
+        currentIndex++
+        navigateToNextPage()
+      }, 3000)
+    }
+  }
+  
+  // 开始自动导航
+  setTimeout(navigateToNextPage, 2000)
 })
 </script>
 
