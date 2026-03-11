@@ -478,6 +478,51 @@ func getString(m map[string]interface{}, key string) string {
 	return ""
 }
 
+// resolveModelName 解析模型名称，支持使用digest ID或模型名称
+func (a *App) resolveModelName(modelID string) string {
+	// 如果模型ID包含冒号，说明是完整的模型名称
+	if strings.Contains(modelID, ":") {
+		return modelID
+	}
+	
+	// 获取本地模型列表
+	models := a.ListModels()
+	
+	// 首先尝试精确匹配模型名称
+	for _, model := range models {
+		if model.Name == modelID {
+			return modelID
+		}
+	}
+	
+	// 尝试匹配模型名称（不带tag）
+	for _, model := range models {
+		parts := strings.Split(model.Name, ":")
+		if len(parts) > 0 && parts[0] == modelID {
+			return model.Name
+		}
+	}
+	
+	// 尝试匹配digest（支持短digest）
+	for _, model := range models {
+		if model.Digest != "" {
+			// 完整digest匹配
+			if model.Digest == modelID {
+				return model.Name
+			}
+			// 短digest匹配（前12位）
+			if len(modelID) <= 12 && len(model.Digest) >= 12 {
+				if model.Digest[:12] == modelID {
+					return model.Name
+				}
+			}
+		}
+	}
+	
+	// 如果都没匹配到，返回原始ID（让Ollama处理错误）
+	return modelID
+}
+
 // getInt64 从 map 中获取 int64 值
 func getInt64(m map[string]interface{}, key string) int64 {
 	if val, ok := m[key]; ok {
@@ -2767,6 +2812,12 @@ func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// 解析模型名称（支持digest ID或模型名称）
+	resolvedModel := a.resolveModelName(req.Model)
+	if resolvedModel != req.Model {
+		log.Printf("[OpenAI API] 模型ID解析: %s -> %s", req.Model, resolvedModel)
+	}
+
 	// 转换为Ollama聊天请求
 	ollamaMessages := make([]ChatMessage, 0, len(req.Messages))
 	for _, msg := range req.Messages {
@@ -2779,7 +2830,7 @@ func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request
 	}
 
 	ollamaReq := ChatRequest{
-		Model:    req.Model,
+		Model:    resolvedModel,
 		Messages: ollamaMessages,
 		Stream:   req.Stream,
 	}
@@ -3053,15 +3104,32 @@ func (a *App) handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
 	// 获取本地模型列表
 	models := a.ListModels()
 
-	// 构建OpenAI模型响应
+	log.Printf("[OpenAI API] 获取到 %d 个模型", len(models))
+
+	// 构建OpenAI模型响应 - 同时返回模型名称和digest作为ID
 	var modelResponses []OpenAIModelResponse
 	for _, model := range models {
+		// 主要使用模型名称
 		modelResponses = append(modelResponses, OpenAIModelResponse{
 			ID:      model.Name,
 			Object:  "model",
 			Created: time.Now().Unix(),
 			OwnedBy: "ollama",
 		})
+		
+		// 如果有digest，也添加一个别名（方便某些工具使用）
+		if model.Digest != "" && model.Digest != model.Name {
+			shortDigest := model.Digest
+			if len(shortDigest) > 12 {
+				shortDigest = shortDigest[:12]
+			}
+			modelResponses = append(modelResponses, OpenAIModelResponse{
+				ID:      shortDigest,
+				Object:  "model",
+				Created: time.Now().Unix(),
+				OwnedBy: "ollama",
+			})
+		}
 	}
 
 	// 构建响应
