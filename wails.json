@@ -7,6 +7,7 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "icon": "build/windows/icon.ico",
   "windows": {
     "console": false
   },
