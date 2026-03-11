@@ -138,6 +138,15 @@
             <el-icon><Download /></el-icon>
             {{ pullLoading && currentPullModel === model.name ? '拉取中...' : '拉取模型' }}
           </el-button>
+          <el-button 
+            size="small" 
+            @click.stop="pullInBackground(model)"
+            :disabled="pullLoading && currentPullModel === model.name"
+            class="pull-btn-secondary"
+          >
+            <el-icon><Download /></el-icon>
+            后台拉取
+          </el-button>
         </div>
       </div>
     </div>
@@ -585,6 +594,24 @@ const confirmPullModel = async (modelName) => {
   }
 }
 
+const pullInBackground = (model) => {
+  currentPullModel.value = model.name
+  pullProgress.value = 0
+  pullStatus.value = ''
+  pullStatusText.value = '后台拉取中'
+  pullCurrentTask.value = '准备后台拉取模型'
+  pullError.value = ''
+  pullLoading.value = true
+  
+  PullModel(model.name).then(() => {
+    ElMessage.success(`模型 ${model.name} 已开始后台拉取`)
+  }).catch(error => {
+    console.error('后台拉取模型失败:', error)
+    ElMessage.error('后台拉取模型失败: ' + error.message)
+    pullLoading.value = false
+  })
+}
+
 const cancelPull = async () => {
   if (!currentPullModel.value) {
     closePullDialog()
@@ -943,6 +970,21 @@ onMounted(() => {
 
 .pull-btn:hover {
   opacity: 0.9;
+}
+
+.pull-btn-secondary {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 10px;
+  color: #06b6d4;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.pull-btn-secondary:hover {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.5);
 }
 
 /* 加载更多 */

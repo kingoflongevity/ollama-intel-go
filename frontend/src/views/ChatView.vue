@@ -187,6 +187,31 @@ const wsConnected = ref(false)
 
 const currentSessionId = computed(() => sessionStore.currentSessionId.value)
 
+const SELECTED_MODEL_KEY = 'ollama-selected-model'
+
+const saveSelectedModel = () => {
+  try {
+    localStorage.setItem(SELECTED_MODEL_KEY, selectedModel.value)
+  } catch (error) {
+    console.error('保存模型选择失败:', error)
+  }
+}
+
+const loadSelectedModel = () => {
+  try {
+    const saved = localStorage.getItem(SELECTED_MODEL_KEY)
+    if (saved) {
+      selectedModel.value = saved
+    }
+  } catch (error) {
+    console.error('加载模型选择失败:', error)
+  }
+}
+
+watch(selectedModel, () => {
+  saveSelectedModel()
+})
+
 const saveMessages = () => {
   if (currentSessionId.value) {
     sessionStore.saveMessages(currentSessionId.value, messages.value)
@@ -331,17 +356,26 @@ const sendMessage = async () => {
   sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
   try {
-    // 优先使用 HTTP API，    await sendMessageWithHTTP()
+    await sendMessageWithHTTP()
   } catch (error) {
     console.error('发送消息失败:', error)
+    let errorMessage = '抱歉，连接AI服务时出现错误，请稍后重试。'
+    
+    if (error.name === 'AbortError') {
+      errorMessage = '请求超时，请检查网络连接或模型是否正确加载。'
+    } else if (error.message) {
+      errorMessage = `错误: ${error.message}`
+    }
+    
     if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
       messages.value[currentStreamMessageIndex.value] = {
         role: 'assistant',
-        content: '抱歉，连接AI服务时出现错误，请稍后重试。',
+        content: errorMessage,
         timestamp: new Date().toLocaleTimeString()
       }
       saveMessages()
     }
+  } finally {
     isLoading.value = false
     currentStreamMessageIndex.value = -1
   }
@@ -363,11 +397,20 @@ const sendMessageWithHTTP = async () => {
     console.log('请求模型:', selectedModel.value)
     console.log('请求消息数:', request.messages.length)
     
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+      console.error('请求超时，已取消')
+    }, 120000)
+
     const response = await fetch(`${apiUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
+      body: JSON.stringify(request),
+      signal: controller.signal
     })
+
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -378,6 +421,7 @@ const sendMessageWithHTTP = async () => {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let fullContent = ''
+    let lastUpdateTime = Date.now()
 
     while (true) {
       const { done, value } = await reader.read()
@@ -396,6 +440,7 @@ const sendMessageWithHTTP = async () => {
           }
           if (data.message && data.message.content) {
             fullContent += data.message.content
+            lastUpdateTime = Date.now()
             if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
               messages.value[currentStreamMessageIndex.value] = {
                 role: 'assistant',
@@ -547,7 +592,9 @@ watch(currentSessionId, (newId, oldId) => {
 })
 
 onMounted(() => {
-  loadModels()
+  loadModels().then(() => {
+    loadSelectedModel()
+  })
   loadMessages()
   connectWebSocket()
   
@@ -742,6 +789,7 @@ onUnmounted(() => {
 
 .chat-main-area {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   z-index: 1;
@@ -751,6 +799,7 @@ onUnmounted(() => {
   height: 100%;
   overflow-y: auto;
   padding: 24px;
+  padding-bottom: 100px;
   display: flex;
   flex-direction: column;
   gap: 20px;
