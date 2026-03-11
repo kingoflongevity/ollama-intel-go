@@ -91,41 +91,8 @@ const showSettings = () => {
   router.push('/settings')
 }
 
-const takeScreenshot = (pageName) => {
-  // 这里需要实现截图功能
-  console.log(`Taking screenshot of ${pageName}`)
-}
-
 onMounted(() => {
   document.body.classList.add('dark-theme')
-  
-  // 自动导航到各个页面进行截图
-  const pages = [
-    { path: '/dashboard', name: 'dashboard' },
-    { path: '/chat', name: 'chat' },
-    { path: '/chat-sessions', name: 'chat-sessions' },
-    { path: '/models', name: 'models' },
-    { path: '/online', name: 'online' },
-    { path: '/logs', name: 'logs' },
-    { path: '/settings', name: 'settings' }
-  ]
-  let currentIndex = 0
-  
-  const navigateToNextPage = () => {
-    if (currentIndex < pages.length) {
-      const page = pages[currentIndex]
-      router.push(page.path)
-      // 给页面足够的加载时间，然后进行截图
-      setTimeout(() => {
-        takeScreenshot(page.name)
-        currentIndex++
-        navigateToNextPage()
-      }, 3000)
-    }
-  }
-  
-  // 开始自动导航
-  setTimeout(navigateToNextPage, 2000)
 })
 </script>
 
@@ -157,9 +124,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  background: rgba(15, 15, 25, 0.8);
+  background: var(--bg-tertiary);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  border-bottom: 1px solid var(--border-color);
   position: relative;
   z-index: 100;
 }
@@ -239,8 +206,8 @@ onMounted(() => {
   width: 220px;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 15, 25, 0.6);
-  border-right: 1px solid rgba(6, 182, 212, 0.15);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
   position: relative;
   z-index: 10;
 }
@@ -263,7 +230,7 @@ onMounted(() => {
 
 .sidebar-header {
   padding: 20px 20px 16px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-title {
@@ -300,7 +267,7 @@ onMounted(() => {
   padding: 12px 14px;
   margin-bottom: 4px;
   border-radius: 10px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   text-decoration: none;
   position: relative;
   transition: all 0.3s ease;
@@ -308,13 +275,13 @@ onMounted(() => {
 }
 
 .nav-item:hover {
-  background: rgba(30, 41, 59, 0.6);
-  color: #e2e8f0;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
-  color: #06b6d4;
+  background: var(--gradient-primary-light);
+  color: var(--color-primary);
   box-shadow: 
     inset 0 1px 0 rgba(6, 182, 212, 0.2),
     0 4px 12px rgba(6, 182, 212, 0.15);
