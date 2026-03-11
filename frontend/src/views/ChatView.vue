@@ -331,25 +331,7 @@ const sendMessage = async () => {
   sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
   try {
-    if (!ws.value || ws.value.readyState !== WebSocket.OPEN) {
-      connectWebSocket()
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-
-    const chatRequest = {
-      type: 'chat',
-      model: selectedModel.value,
-      messages: messages.value.filter(m => m.role !== 'assistant').map(m => ({
-        role: m.role,
-        content: m.content
-      }))
-    }
-
-    if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-      ws.value.send(JSON.stringify(chatRequest))
-    } else {
-      await sendMessageWithHTTP()
-    }
+    // 优先使用 HTTP API，    await sendMessageWithHTTP()
   } catch (error) {
     console.error('发送消息失败:', error)
     if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
@@ -378,6 +360,8 @@ const sendMessageWithHTTP = async () => {
 
     const apiUrl = configStore.getOllamaApiUrl()
     console.log('正在连接Ollama API:', apiUrl)
+    console.log('请求模型:', selectedModel.value)
+    console.log('请求消息数:', request.messages.length)
     
     const response = await fetch(`${apiUrl}/api/chat`, {
       method: 'POST',
@@ -385,7 +369,11 @@ const sendMessageWithHTTP = async () => {
       body: JSON.stringify(request)
     })
 
-    if (!response.ok) throw new Error('HTTP请求失败')
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('HTTP请求失败:', response.status, errorText)
+      throw new Error(`HTTP请求失败: ${response.status}`)
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -402,6 +390,10 @@ const sendMessageWithHTTP = async () => {
         if (line.trim() === '') continue
         try {
           const data = JSON.parse(line)
+          if (data.error) {
+            console.error('Ollama返回错误:', data.error)
+            throw new Error(data.error)
+          }
           if (data.message && data.message.content) {
             fullContent += data.message.content
             if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
@@ -415,10 +407,15 @@ const sendMessageWithHTTP = async () => {
           }
           if (data.done) break
         } catch (e) {
-          console.error('解析流式响应失败:', e)
+          if (e.message && !e.message.includes('JSON')) {
+            throw e
+          }
+          console.error('解析流式响应失败:', e, '原始数据:', line)
         }
       }
     }
+    
+    console.log('聊天完成，总长度:', fullContent.length)
   } catch (error) {
     console.error('HTTP API发送失败:', error)
     throw error
