@@ -1,98 +1,176 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="Ollama 英特尔优化版" Language="2052" Version="1.0.0.0" Manufacturer="Ollama Intel" UpgradeCode="12345678-1234-1234-1234-123456789012">
+  <Product Id="*" Name="Ollama Intel Optimized" Language="1033" Version="1.0.0.0" Manufacturer="Ollama Intel" UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
-    <MediaTemplate />
+    <MediaTemplate EmbedCab="yes" />
 
-    <Feature Id="ProductFeature" Title="Ollama Intel" Level="1">
-      <ComponentGroupRef Id="ProductComponents" />
-    </Feature>
-
-    <!-- 安装目录 -->
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
-        <Directory Id="INSTALLFOLDER" Name="Ollama Intel" />
+        <Directory Id="INSTALLFOLDER" Name="Ollama Intel">
+          <Directory Id="OllamaBinFolder" Name="ollama-bin" />
+        </Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
         <Directory Id="ApplicationProgramsFolder" Name="Ollama Intel" />
       </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
     </Directory>
 
-    <!-- 组件组 -->
-    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <!-- 主程序 -->
+    <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="MainExecutable" Guid="*">
         <File Id="OllamaDesktopExe" Source="build\bin\ollama-desktop-intel.exe" KeyPath="yes">
-          <Shortcut Id="startmenuOllama" Directory="ApplicationProgramsFolder" Name="Ollama 英特尔优化版" WorkingDirectory="INSTALLFOLDER" Icon="OllamaIcon.exe" IconIndex="0" Advertise="yes" />
-          <Shortcut Id="desktopOllama" Directory="DesktopFolder" Name="Ollama 英特尔优化版" WorkingDirectory="INSTALLFOLDER" Icon="OllamaIcon.exe" IconIndex="0" Advertise="yes" />
+          <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Name="Ollama Intel" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.exe" IconIndex="0" Advertise="yes" />
+          <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="Ollama Intel" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.exe" IconIndex="0" Advertise="yes" />
         </File>
+        <ProgId Id="OllamaIntelFile" Description="Ollama Intel Model File">
+          <Extension Id="gguf" ContentType="application/gguf">
+            <Verb Id="open" Command="&quot;[INSTALLFOLDER]ollama-desktop-intel.exe&quot; &quot;%1&quot;" Argument="&quot;%1&quot;" />
+          </Extension>
+        </ProgId>
       </Component>
+    </DirectoryRef>
 
-      <!-- Ollama二进制文件 -->
-      <Component Id="OllamaBinaries" Guid="*">
-        <File Id="OllamaExe" Source="ollama-bin\ollama.exe" />
-        <File Id="OllamaLibExe" Source="ollama-bin\ollama-lib.exe" />
-        <File Id="OllamaServeBat" Source="ollama-bin\ollama-serve.bat" />
-        <File Id="StartOllamaBat" Source="ollama-bin\start-ollama.bat" />
+    <DirectoryRef Id="OllamaBinFolder">
+      <Component Id="OllamaExe" Guid="*">
+        <File Id="OllamaExeFile" Source="ollama-bin\ollama.exe" />
       </Component>
-
-      <!-- DLL文件 -->
-      <Component Id="OllamaDLLs" Guid="*">
-        <File Id="DnnlDll" Source="ollama-bin\dnnl.dll" />
-        <File Id="GgmlBaseDll" Source="ollama-bin\ggml-base.dll" />
-        <File Id="GgmlCpuDll" Source="ollama-bin\ggml-cpu.dll" />
-        <File Id="GgmlSyclDll" Source="ollama-bin\ggml-sycl.dll" />
-        <File Id="GgmlDll" Source="ollama-bin\ggml.dll" />
-        <File Id="LibcDll" Source="ollama-bin\libc++.dll" />
-        <File Id="LibhwlocDll" Source="ollama-bin\libhwloc-15.dll" />
-        <File Id="Libiomp5mdDll" Source="ollama-bin\libiomp5md.dll" />
-        <File Id="LibmmdDll" Source="ollama-bin\libmmd.dll" />
-        <File Id="LlamaDll" Source="ollama-bin\llama.dll" />
-        <File Id="LlavaSharedDll" Source="ollama-bin\llava_shared.dll" />
-        <File Id="MklCoreDll" Source="ollama-bin\mkl_core.2.dll" />
-        <File Id="MklSyclBlasDll" Source="ollama-bin\mkl_sycl_blas.5.dll" />
-        <File Id="MklTbbThreadDll" Source="ollama-bin\mkl_tbb_thread.2.dll" />
-        <File Id="MtmdSharedDll" Source="ollama-bin\mtmd_shared.dll" />
-        <File Id="SvmlDispmdDll" Source="ollama-bin\svml_dispmd.dll" />
-        <File Id="SyclLsExe" Source="ollama-bin\sycl-ls.exe" />
-        <File Id="Sycl8Dll" Source="ollama-bin\sycl8.dll" />
-        <File Id="Tbb12Dll" Source="ollama-bin\tbb12.dll" />
-        <File Id="TbbbindDll" Source="ollama-bin\tbbbind.dll" />
-        <File Id="Tbbbind20Dll" Source="ollama-bin\tbbbind_2_0.dll" />
-        <File Id="Tbbbind25Dll" Source="ollama-bin\tbbbind_2_5.dll" />
-        <File Id="TbbmallocDll" Source="ollama-bin\tbbmalloc.dll" />
-        <File Id="TbbmallocProxyDll" Source="ollama-bin\tbbmalloc_proxy.dll" />
-        <File Id="TcmDll" Source="ollama-bin\tcm.dll" />
-        <File Id="UmfDll" Source="ollama-bin\umf.dll" />
-        <File Id="UrAdapterLevelZeroDll" Source="ollama-bin\ur_adapter_level_zero.dll" />
-        <File Id="UrAdapterOpenclDll" Source="ollama-bin\ur_adapter_opencl.dll" />
-        <File Id="UrLoaderDll" Source="ollama-bin\ur_loader.dll" />
-        <File Id="UrWinProxyLoaderDll" Source="ollama-bin\ur_win_proxy_loader.dll" />
+      <Component Id="OllamaLibExe" Guid="*">
+        <File Id="OllamaLibExeFile" Source="ollama-bin\ollama-lib.exe" />
       </Component>
-
-      <!-- 文档文件 -->
-      <Component Id="OllamaDocs" Guid="*">
-        <File Id="ReadmeTxt" Source="ollama-bin\README.txt" />
-        <File Id="ReadmeZhTxt" Source="ollama-bin\README.zh-CN.txt" />
-        <File Id="OllamaVersionTxt" Source="ollama-bin\ollama-version.txt" />
+      <Component Id="DnnlDll" Guid="*">
+        <File Id="DnnlDllFile" Source="ollama-bin\dnnl.dll" />
       </Component>
-    </ComponentGroup>
+      <Component Id="GgmlBaseDll" Guid="*">
+        <File Id="GgmlBaseDllFile" Source="ollama-bin\ggml-base.dll" />
+      </Component>
+      <Component Id="GgmlCpuDll" Guid="*">
+        <File Id="GgmlCpuDllFile" Source="ollama-bin\ggml-cpu.dll" />
+      </Component>
+      <Component Id="GgmlSyclDll" Guid="*">
+        <File Id="GgmlSyclDllFile" Source="ollama-bin\ggml-sycl.dll" />
+      </Component>
+      <Component Id="GgmlDll" Guid="*">
+        <File Id="GgmlDllFile" Source="ollama-bin\ggml.dll" />
+      </Component>
+      <Component Id="LibcDll" Guid="*">
+        <File Id="LibcDllFile" Source="ollama-bin\libc++.dll" />
+      </Component>
+      <Component Id="LibhwlocDll" Guid="*">
+        <File Id="LibhwlocDllFile" Source="ollama-bin\libhwloc-15.dll" />
+      </Component>
+      <Component Id="Libiomp5mdDll" Guid="*">
+        <File Id="Libiomp5mdDllFile" Source="ollama-bin\libiomp5md.dll" />
+      </Component>
+      <Component Id="LibmmdDll" Guid="*">
+        <File Id="LibmmdDllFile" Source="ollama-bin\libmmd.dll" />
+      </Component>
+      <Component Id="LlamaDll" Guid="*">
+        <File Id="LlamaDllFile" Source="ollama-bin\llama.dll" />
+      </Component>
+      <Component Id="LlavaSharedDll" Guid="*">
+        <File Id="LlavaSharedDllFile" Source="ollama-bin\llava_shared.dll" />
+      </Component>
+      <Component Id="MklCoreDll" Guid="*">
+        <File Id="MklCoreDllFile" Source="ollama-bin\mkl_core.2.dll" />
+      </Component>
+      <Component Id="MklSyclBlasDll" Guid="*">
+        <File Id="MklSyclBlasDllFile" Source="ollama-bin\mkl_sycl_blas.5.dll" />
+      </Component>
+      <Component Id="MklTbbThreadDll" Guid="*">
+        <File Id="MklTbbThreadDllFile" Source="ollama-bin\mkl_tbb_thread.2.dll" />
+      </Component>
+      <Component Id="MtmdSharedDll" Guid="*">
+        <File Id="MtmdSharedDllFile" Source="ollama-bin\mtmd_shared.dll" />
+      </Component>
+      <Component Id="SvmlDispmdDll" Guid="*">
+        <File Id="SvmlDispmdDllFile" Source="ollama-bin\svml_dispmd.dll" />
+      </Component>
+      <Component Id="Sycl8Dll" Guid="*">
+        <File Id="Sycl8DllFile" Source="ollama-bin\sycl8.dll" />
+      </Component>
+      <Component Id="Tbb12Dll" Guid="*">
+        <File Id="Tbb12DllFile" Source="ollama-bin\tbb12.dll" />
+      </Component>
+      <Component Id="TbbbindDll" Guid="*">
+        <File Id="TbbbindDllFile" Source="ollama-bin\tbbbind.dll" />
+      </Component>
+      <Component Id="Tbbbind20Dll" Guid="*">
+        <File Id="Tbbbind20DllFile" Source="ollama-bin\tbbbind_2_0.dll" />
+      </Component>
+      <Component Id="Tbbbind25Dll" Guid="*">
+        <File Id="Tbbbind25DllFile" Source="ollama-bin\tbbbind_2_5.dll" />
+      </Component>
+      <Component Id="TbbmallocDll" Guid="*">
+        <File Id="TbbmallocDllFile" Source="ollama-bin\tbbmalloc.dll" />
+      </Component>
+      <Component Id="TbbmallocProxyDll" Guid="*">
+        <File Id="TbbmallocProxyDllFile" Source="ollama-bin\tbbmalloc_proxy.dll" />
+      </Component>
+      <Component Id="TcmDll" Guid="*">
+        <File Id="TcmDllFile" Source="ollama-bin\tcm.dll" />
+      </Component>
+      <Component Id="UmfDll" Guid="*">
+        <File Id="UmfDllFile" Source="ollama-bin\umf.dll" />
+      </Component>
+      <Component Id="UrAdapterLevelZeroDll" Guid="*">
+        <File Id="UrAdapterLevelZeroDllFile" Source="ollama-bin\ur_adapter_level_zero.dll" />
+      </Component>
+      <Component Id="UrAdapterOpenclDll" Guid="*">
+        <File Id="UrAdapterOpenclDllFile" Source="ollama-bin\ur_adapter_opencl.dll" />
+      </Component>
+      <Component Id="UrLoaderDll" Guid="*">
+        <File Id="UrLoaderDllFile" Source="ollama-bin\ur_loader.dll" />
+      </Component>
+      <Component Id="UrWinProxyLoaderDll" Guid="*">
+        <File Id="UrWinProxyLoaderDllFile" Source="ollama-bin\ur_win_proxy_loader.dll" />
+      </Component>
+    </DirectoryRef>
 
-    <!-- 图标 -->
-    <Icon Id="OllamaIcon.exe" SourceFile="build\windows\icon.ico" />
-
-    <!-- 卸载快捷方式 -->
     <DirectoryRef Id="ApplicationProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="*">
-        <Shortcut Id="UninstallProduct" Name="卸载 Ollama 英特尔优化版" Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]" Description="卸载 Ollama 英特尔优化版" />
-        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <Shortcut Id="UninstallProduct" Name="Uninstall Ollama Intel" Target="[SystemFolder]msiexec.exe" Arguments="/x [ProductCode]" Description="Uninstall Ollama Intel" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue Root="HKCU" Key="Software\OllamaIntel" Name="installed" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
-    <Feature Id="DesktopShortcutFeature" Title="桌面快捷方式" Level="1">
+    <Icon Id="AppIcon.exe" SourceFile="build\windows\icon.ico" />
+
+    <Feature Id="MainFeature" Title="Ollama Intel" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="OllamaExe" />
+      <ComponentRef Id="OllamaLibExe" />
+      <ComponentRef Id="DnnlDll" />
+      <ComponentRef Id="GgmlBaseDll" />
+      <ComponentRef Id="GgmlCpuDll" />
+      <ComponentRef Id="GgmlSyclDll" />
+      <ComponentRef Id="GgmlDll" />
+      <ComponentRef Id="LibcDll" />
+      <ComponentRef Id="LibhwlocDll" />
+      <ComponentRef Id="Libiomp5mdDll" />
+      <ComponentRef Id="LibmmdDll" />
+      <ComponentRef Id="LlamaDll" />
+      <ComponentRef Id="LlavaSharedDll" />
+      <ComponentRef Id="MklCoreDll" />
+      <ComponentRef Id="MklSyclBlasDll" />
+      <ComponentRef Id="MklTbbThreadDll" />
+      <ComponentRef Id="MtmdSharedDll" />
+      <ComponentRef Id="SvmlDispmdDll" />
+      <ComponentRef Id="Sycl8Dll" />
+      <ComponentRef Id="Tbb12Dll" />
+      <ComponentRef Id="TbbbindDll" />
+      <ComponentRef Id="Tbbbind20Dll" />
+      <ComponentRef Id="Tbbbind25Dll" />
+      <ComponentRef Id="TbbmallocDll" />
+      <ComponentRef Id="TbbmallocProxyDll" />
+      <ComponentRef Id="TcmDll" />
+      <ComponentRef Id="UmfDll" />
+      <ComponentRef Id="UrAdapterLevelZeroDll" />
+      <ComponentRef Id="UrAdapterOpenclDll" />
+      <ComponentRef Id="UrLoaderDll" />
+      <ComponentRef Id="UrWinProxyLoaderDll" />
       <ComponentRef Id="ApplicationShortcut" />
     </Feature>
 
