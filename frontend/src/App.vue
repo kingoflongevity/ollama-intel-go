@@ -1,71 +1,58 @@
 <template>
-  <div class="app-wrapper">
-    <!-- 错误通知组件 -->
+  <div class="tech-app-wrapper">
     <ErrorNotification ref="errorNotificationRef" />
     
-    <!-- 顶部导航栏 -->
-    <el-header class="app-header">
-      <div class="header-content">
-        <div class="logo-section">
-          <el-icon size="24"><Monitor /></el-icon>
-          <span class="logo-text">Ollama 英特尔优化版</span>
+    <header class="tech-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <el-icon size="22"><Cpu /></el-icon>
         </div>
-        <div class="header-actions">
-          <el-button link @click="toggleTheme" class="header-btn">
-            <el-icon v-if="isDark"><Sunny /></el-icon>
-            <el-icon v-else><Moon /></el-icon>
-          </el-button>
-          <el-button link @click="showSettings" class="header-btn">
-            <el-icon><Setting /></el-icon>
-          </el-button>
+        <div class="logo-text">
+          <span class="logo-title">Ollama 英特尔优化版</span>
+          <span class="logo-subtitle">Intel Optimized</span>
         </div>
       </div>
-    </el-header>
+      <div class="header-right">
+        <button class="header-btn" @click="toggleTheme" :title="isDark ? '切换到亮色模式' : '切换到暗色模式'">
+          <el-icon v-if="isDark" size="18"><Sunny /></el-icon>
+          <el-icon v-else size="18"><Moon /></el-icon>
+        </button>
+        <button class="header-btn" @click="showSettings" title="设置">
+          <el-icon size="18"><Setting /></el-icon>
+        </button>
+      </div>
+    </header>
 
-    <div class="app-container">
-      <!-- 侧边栏 -->
-      <el-aside width="260px" class="sidebar">
-        <el-menu
-          :default-active="$route.path"
-          :router="true"
-          class="sidebar-menu"
-          :collapse="false"
-        >
-          <el-menu-item index="/dashboard" class="menu-item">
-            <el-icon><House /></el-icon>
-            <span>仪表板</span>
-          </el-menu-item>
-          <el-menu-item index="/chat" class="menu-item">
-            <el-icon><ChatLineRound /></el-icon>
-            <span>聊天</span>
-          </el-menu-item>
-          <el-menu-item index="/chat-sessions" class="menu-item">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>会话管理</span>
-          </el-menu-item>
-          <el-menu-item index="/models" class="menu-item">
-            <el-icon><Files /></el-icon>
-            <span>模型管理</span>
-          </el-menu-item>
-          <el-menu-item index="/online" class="menu-item">
-            <el-icon><Connection /></el-icon>
-            <span>在线模型</span>
-          </el-menu-item>
-          <el-menu-item index="/logs" class="menu-item">
-            <el-icon><Document /></el-icon>
-            <span>日志管理</span>
-          </el-menu-item>
-          <el-menu-item index="/settings" class="menu-item">
-            <el-icon><Setting /></el-icon>
-            <span>设置</span>
-          </el-menu-item>
-        </el-menu>
-      </el-aside>
+    <div class="tech-app-container">
+      <aside class="tech-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">导航菜单</span>
+        </div>
+        <nav class="sidebar-nav">
+          <router-link 
+            v-for="item in menuItems" 
+            :key="item.path"
+            :to="item.path"
+            class="nav-item"
+            :class="{ active: $route.path === item.path }"
+          >
+            <div class="nav-icon">
+              <el-icon size="18"><component :is="item.icon" /></el-icon>
+            </div>
+            <span class="nav-label">{{ item.label }}</span>
+            <div class="nav-indicator"></div>
+          </router-link>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="version-info">
+            <span>v1.0.0</span>
+          </div>
+        </div>
+      </aside>
 
-      <!-- 主内容区 -->
-      <el-main class="main-content">
+      <main class="tech-main-content">
         <router-view />
-      </el-main>
+      </main>
     </div>
   </div>
 </template>
@@ -74,9 +61,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
-  Monitor, Moon, Sunny, Setting, House, 
-  ChatLineRound, ChatDotRound, Files, Connection,
-  Document
+  Cpu, Moon, Sunny, Setting, House, 
+  ChatLineRound, ChatDotRound, Box, Connection,
+  Document, Download
 } from '@element-plus/icons-vue'
 import ErrorNotification from '@/components/ErrorNotification.vue'
 
@@ -84,18 +71,22 @@ const router = useRouter()
 const isDark = ref(true)
 const errorNotificationRef = ref(null)
 
-/**
- * 切换主题 - 在深色和浅色主题之间切换
- */
+const menuItems = [
+  { path: '/dashboard', label: '仪表盘', icon: House },
+  { path: '/chat', label: 'AI 对话', icon: ChatLineRound },
+  { path: '/chat-sessions', label: '会话管理', icon: ChatDotRound },
+  { path: '/models', label: '本地模型', icon: Box },
+  { path: '/online', label: '在线模型', icon: Download },
+  { path: '/logs', label: '系统日志', icon: Document },
+  { path: '/settings', label: '系统设置', icon: Setting },
+]
+
 const toggleTheme = () => {
   isDark.value = !isDark.value
   document.body.classList.toggle('dark-theme', isDark.value)
   document.body.classList.toggle('light-theme', !isDark.value)
 }
 
-/**
- * 显示设置页面
- */
 const showSettings = () => {
   router.push('/settings')
 }
@@ -106,161 +97,253 @@ onMounted(() => {
 </script>
 
 <style lang="scss">
-.app-wrapper {
+.tech-app-wrapper {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 75% 75%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0f0f1a 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.app-header {
-  padding: 0;
-  height: 70px;
-  margin: var(--spacing-lg);
-  margin-bottom: 0;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  background: var(--bg-elevated);
+.tech-app-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.tech-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(15, 15, 25, 0.8);
   backdrop-filter: blur(20px);
-  box-shadow: var(--shadow);
-
-  .header-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 100%;
-    padding: 0 var(--spacing-2xl);
-
-    .logo-section {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-lg);
-
-      .logo-text {
-        font-size: var(--font-size-2xl);
-        font-weight: var(--font-weight-bold);
-        background: var(--gradient-primary);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .el-icon {
-        color: var(--color-primary);
-      }
-    }
-
-    .header-actions {
-      display: flex;
-      gap: var(--spacing-lg);
-
-      .header-btn {
-        color: var(--text-primary);
-        font-size: 18px;
-        transition: all var(--transition-base);
-
-        &:hover {
-          color: var(--color-primary);
-          transform: translateY(-1px);
-        }
-      }
-    }
-  }
+  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
+  position: relative;
+  z-index: 100;
 }
 
-.app-container {
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: 0.5px;
+}
+
+.logo-subtitle {
+  font-size: 10px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.header-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 10px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.header-btn:hover {
+  background: rgba(6, 182, 212, 0.15);
+  border-color: rgba(6, 182, 212, 0.4);
+  color: #06b6d4;
+  transform: translateY(-1px);
+}
+
+.tech-app-container {
   display: flex;
   flex: 1;
   overflow: hidden;
-  padding: var(--spacing-lg);
-  gap: var(--spacing-lg);
-}
-
-.sidebar {
-  border-radius: var(--radius-2xl);
-  border: 1px solid var(--border-color);
-  height: calc(100vh - 122px);
-  overflow: hidden;
-  background: var(--bg-elevated);
-  backdrop-filter: blur(16px);
-  box-shadow: var(--shadow);
   position: relative;
-
-  /* 边缘渐变发光效果 */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: var(--radius-2xl);
-    padding: 1px;
-    background: var(--gradient-primary);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    opacity: 0.3;
-  }
-
-  .sidebar-menu {
-    border: none;
-    height: 100%;
-    background: transparent;
-    padding: var(--spacing-lg) 0;
-
-    .menu-item {
-      height: 56px;
-      line-height: 56px;
-      margin: var(--spacing-xs) var(--spacing-md);
-      border-radius: var(--radius-lg);
-      color: var(--text-secondary);
-      transition: all var(--transition-base);
-      position: relative;
-      overflow: hidden;
-      padding-left: var(--spacing-2xl);
-      font-weight: var(--font-weight-medium);
-
-      /* 选中项样式 */
-      &.is-active {
-        background: var(--gradient-primary-light);
-        color: var(--color-primary);
-        box-shadow: 
-          inset 0 1px 0 rgba(6, 182, 212, 0.3),
-          0 4px 16px rgba(6, 182, 212, 0.3);
-        border-left: 3px solid var(--color-primary);
-        padding-left: calc(var(--spacing-2xl) - 3px);
-      }
-
-      &:hover {
-        background: rgba(6, 182, 212, 0.1);
-        color: var(--text-primary);
-        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2);
-      }
-
-      .el-icon {
-        font-size: 18px;
-        margin-right: var(--spacing-lg);
-        transition: all var(--transition-base);
-      }
-
-      span {
-        font-size: var(--font-size-base);
-        letter-spacing: 0.02em;
-      }
-    }
-  }
+  z-index: 1;
 }
 
-.main-content {
-  padding: var(--spacing-2xl);
-  overflow-y: auto;
-  background: transparent;
+.tech-sidebar {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 15, 25, 0.6);
+  border-right: 1px solid rgba(6, 182, 212, 0.15);
+  position: relative;
+}
+
+.tech-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, 
+    transparent 0%, 
+    rgba(6, 182, 212, 0.3) 20%, 
+    rgba(139, 92, 246, 0.3) 50%, 
+    rgba(6, 182, 212, 0.3) 80%, 
+    transparent 100%
+  );
+}
+
+.sidebar-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.sidebar-nav {
   flex: 1;
-  border-radius: var(--radius-xl);
+  padding: 12px 10px;
+  overflow-y: auto;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.2);
+  border-radius: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+  border-radius: 10px;
+  color: #94a3b8;
+  text-decoration: none;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  color: #06b6d4;
+  box-shadow: 
+    inset 0 1px 0 rgba(6, 182, 212, 0.2),
+    0 4px 12px rgba(6, 182, 212, 0.15);
+}
+
+.nav-item.active .nav-icon {
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+}
+
+.nav-item.active .nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: linear-gradient(180deg, #06b6d4, #8b5cf6);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.nav-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.version-info span {
+  font-size: 11px;
+  color: #475569;
+  padding: 4px 12px;
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: 20px;
+  border: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.tech-main-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 </style>
