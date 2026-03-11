@@ -188,15 +188,13 @@ func (a *App) startup(ctx context.Context) {
 	// 初始化HTTP服务器，添加WebSocket路由
 	a.initHTTPServer()
 
-	// 启动 Ollama 服务
+	// 启动 Ollama 服务（同步执行以便调试）
 	log.Println("startup: 启动 Ollama 服务")
-	go func() {
-		if err := a.startOllamaService(); err != nil {
-			log.Printf("startup: 启动 Ollama 服务失败: %v\n", err)
-		} else {
-			log.Println("startup: Ollama 服务启动成功")
-		}
-	}()
+	if err := a.startOllamaService(); err != nil {
+		log.Printf("startup: 启动 Ollama 服务失败: %v\n", err)
+	} else {
+		log.Println("startup: Ollama 服务启动成功")
+	}
 	log.Println("startup: 初始化完成")
 }
 
