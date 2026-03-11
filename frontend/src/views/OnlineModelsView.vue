@@ -4,7 +4,7 @@
     <div class="page-header">
       <div class="header-title">
         <div class="title-icon">
-          <el-icon size="24"><CloudDownload /></el-icon>
+          <el-icon size="24"><Download /></el-icon>
         </div>
         <div class="title-content">
           <h2>在线模型库</h2>
@@ -168,7 +168,7 @@
         <!-- 成功状态 -->
         <div v-if="pullStatus === 'success'" class="pull-success">
           <div class="success-icon">
-            <el-icon size="60"><CircleCheckFilled /></el-icon>
+            <el-icon size="60"><SuccessFilled /></el-icon>
           </div>
           <h3>模型拉取完成!</h3>
           <p class="model-name">{{ currentPullModel }}</p>
@@ -178,7 +178,7 @@
         <!-- 错误状态 -->
         <div v-else-if="pullStatus === 'exception'" class="pull-error">
           <div class="error-icon">
-            <el-icon size="60"><CircleCloseFilled /></el-icon>
+            <el-icon size="60"><WarningFilled /></el-icon>
           </div>
           <h3>拉取失败</h3>
           <p class="model-name">{{ currentPullModel }}</p>
@@ -306,8 +306,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { 
-  CloudDownload, Search, Box, Download, Refresh, Cpu, Setting,
-  CircleCheck, CircleCheckFilled, CircleCloseFilled, Loading,
+  Download, Search, Box, Refresh, Cpu, Setting,
+  CircleCheck, SuccessFilled, WarningFilled, Loading,
   Check, Close, RefreshRight
 } from '@element-plus/icons-vue'
 import { GetOnlineModels, PullModel, SearchOnlineModels, CancelPull } from '../../wailsjs/go/main/App'
