@@ -8,7 +8,7 @@ export function CancelPull(arg1:string):Promise<Record<string, any>>;
 
 export function ChatCompletion(arg1:main.ChatRequest):Promise<main.ChatResponse>;
 
-export function ChatStream(arg1:main.ChatStreamRequest):Promise<Array<main.ChatStreamResult>>;
+export function ChatStream(arg1:main.ChatStreamRequest):Promise<main.ChatStreamResult>;
 
 export function CheckOllamaAvailable():Promise<boolean>;
 

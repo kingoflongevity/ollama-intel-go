@@ -354,6 +354,44 @@ const sendMessage = async () => {
 
   sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
+  // 监听流式更新事件
+  let streamContent = ''
+  const handleStreamChunk = (eventData) => {
+    console.log('收到流式更新:', eventData)
+    
+    if (eventData.error) {
+      messages.value[currentStreamMessageIndex.value] = {
+        role: 'assistant',
+        content: `错误: ${eventData.error}`,
+        timestamp: new Date().toLocaleTimeString()
+      }
+      saveMessages()
+      isLoading.value = false
+      currentStreamMessageIndex.value = -1
+      EventsOff('chat_stream_chunk')
+      return
+    }
+    
+    if (eventData.full_content) {
+      streamContent = eventData.full_content
+      messages.value[currentStreamMessageIndex.value] = {
+        role: 'assistant',
+        content: streamContent,
+        timestamp: new Date().toLocaleTimeString()
+      }
+      saveMessages()
+      scrollToBottom()
+    }
+    
+    if (eventData.done) {
+      isLoading.value = false
+      currentStreamMessageIndex.value = -1
+      EventsOff('chat_stream_chunk')
+    }
+  }
+  
+  EventsOn('chat_stream_chunk', handleStreamChunk)
+
   try {
     // 通过后端代理调用Ollama API，避免跨域问题
     const request = {
@@ -367,32 +405,24 @@ const sendMessage = async () => {
     
     console.log('发送聊天请求:', request.model, '消息数:', request.messages.length)
     
-    const results = await ChatStream(request)
+    const result = await ChatStream(request)
     
-    console.log('收到聊天结果:', results.length, '条')
+    console.log('聊天完成:', result)
     
-    if (results && results.length > 0) {
-      const lastResult = results[results.length - 1]
-      
-      if (lastResult.error) {
-        messages.value[currentStreamMessageIndex.value] = {
-          role: 'assistant',
-          content: `错误: ${lastResult.error}`,
-          timestamp: new Date().toLocaleTimeString()
-        }
-      } else {
-        // 使用最后一个结果的内容
-        messages.value[currentStreamMessageIndex.value] = {
-          role: 'assistant',
-          content: lastResult.content || '',
-          timestamp: new Date().toLocaleTimeString()
-        }
-      }
-      saveMessages()
-    } else {
+    // 确保最终内容正确
+    if (result && result.content && !streamContent) {
       messages.value[currentStreamMessageIndex.value] = {
         role: 'assistant',
-        content: '抱歉，未收到响应。请检查Ollama服务是否正常运行。',
+        content: result.content,
+        timestamp: new Date().toLocaleTimeString()
+      }
+      saveMessages()
+    }
+    
+    if (result && result.error) {
+      messages.value[currentStreamMessageIndex.value] = {
+        role: 'assistant',
+        content: `错误: ${result.error}`,
         timestamp: new Date().toLocaleTimeString()
       }
       saveMessages()
@@ -416,6 +446,7 @@ const sendMessage = async () => {
   } finally {
     isLoading.value = false
     currentStreamMessageIndex.value = -1
+    EventsOff('chat_stream_chunk')
   }
 }
 
@@ -745,13 +776,15 @@ onUnmounted(() => {
   overflow: hidden;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-messages {
-  height: 100%;
+  flex: 1;
   overflow-y: auto;
   padding: 24px;
-  padding-bottom: 100px;
+  padding-bottom: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;

@@ -1128,13 +1128,12 @@ type ChatStreamResult struct {
 }
 
 // ChatStream 聊天流式响应，通过后端代理调用Ollama API
-func (a *App) ChatStream(req ChatStreamRequest) []ChatStreamResult {
+// 使用事件推送实现真正的流式传输
+func (a *App) ChatStream(req ChatStreamRequest) *ChatStreamResult {
 	log.Printf("ChatStream: 模型=%s, 消息数=%d", req.Model, len(req.Messages))
 
-	var results []ChatStreamResult
-
 	// 使用 HTTP API 进行聊天
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: 180 * time.Second}
 
 	// 构建请求体
 	reqBody, err := json.Marshal(map[string]interface{}{
@@ -1143,37 +1142,35 @@ func (a *App) ChatStream(req ChatStreamRequest) []ChatStreamResult {
 		"stream":   true,
 	})
 	if err != nil {
-		results = append(results, ChatStreamResult{
+		return &ChatStreamResult{
 			Error: fmt.Sprintf("构建请求失败: %v", err),
 			Done:  true,
-		})
-		return results
+		}
 	}
 
 	// 发送请求
 	resp, err := client.Post("http://127.0.0.1:11434/api/chat", "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
-		results = append(results, ChatStreamResult{
+		return &ChatStreamResult{
 			Error: fmt.Sprintf("连接Ollama服务失败: %v", err),
 			Done:  true,
-		})
-		return results
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		results = append(results, ChatStreamResult{
+		return &ChatStreamResult{
 			Error: fmt.Sprintf("Ollama返回错误: %d - %s", resp.StatusCode, string(body)),
 			Done:  true,
-		})
-		return results
+		}
 	}
 
-	// 处理流式响应
+	// 处理流式响应，通过事件推送到前端
 	scanner := bufio.NewScanner(resp.Body)
 	var fullContent strings.Builder
 	startTime := time.Now()
+	var modelName string
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -1195,42 +1192,66 @@ func (a *App) ChatStream(req ChatStreamRequest) []ChatStreamResult {
 		}
 
 		if chunk.Error != "" {
-			results = append(results, ChatStreamResult{
+			// 发送错误事件
+			if a.ctx != nil {
+				wailsRuntime.EventsEmit(a.ctx, "chat_stream_chunk", map[string]interface{}{
+					"error": chunk.Error,
+					"done":  true,
+				})
+			}
+			return &ChatStreamResult{
 				Error: chunk.Error,
 				Done:  true,
-			})
-			return results
+			}
+		}
+
+		if chunk.Model != "" {
+			modelName = chunk.Model
 		}
 
 		if chunk.Message.Content != "" {
 			fullContent.WriteString(chunk.Message.Content)
-			results = append(results, ChatStreamResult{
-				Content: fullContent.String(),
-				Done:    false,
-				Model:   chunk.Model,
-			})
+			
+			// 发送流式更新事件到前端
+			if a.ctx != nil {
+				wailsRuntime.EventsEmit(a.ctx, "chat_stream_chunk", map[string]interface{}{
+					"content":     chunk.Message.Content,
+					"full_content": fullContent.String(),
+					"done":        false,
+					"model":       modelName,
+				})
+			}
 		}
 
 		if chunk.Done {
-			results = append(results, ChatStreamResult{
-				Content:   fullContent.String(),
-				Done:      true,
-				Model:     chunk.Model,
-				TotalTime: time.Since(startTime).Milliseconds(),
-			})
+			// 发送完成事件
+			if a.ctx != nil {
+				wailsRuntime.EventsEmit(a.ctx, "chat_stream_chunk", map[string]interface{}{
+					"content":     "",
+					"full_content": fullContent.String(),
+					"done":        true,
+					"model":       modelName,
+					"total_time":  time.Since(startTime).Milliseconds(),
+				})
+			}
 			break
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		results = append(results, ChatStreamResult{
+		return &ChatStreamResult{
 			Error: fmt.Sprintf("读取响应失败: %v", err),
 			Done:  true,
-		})
+		}
 	}
 
-	log.Printf("ChatStream完成: 内容长度=%d, 结果数=%d", fullContent.Len(), len(results))
-	return results
+	log.Printf("ChatStream完成: 内容长度=%d", fullContent.Len())
+	return &ChatStreamResult{
+		Content:   fullContent.String(),
+		Done:      true,
+		Model:     modelName,
+		TotalTime: time.Since(startTime).Milliseconds(),
+	}
 }
 
 // StartService 启动服务
