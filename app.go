@@ -63,9 +63,6 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 		wailsRuntime.EventsEmit(l.ctx, "log", msg)
 	}
 
-	// 同时写入标准错误（可选，用于调试）
-	os.Stderr.Write(p)
-
 	return len(p), nil
 }
 
@@ -143,17 +140,16 @@ func (a *App) startup(ctx context.Context) {
 
 	// 启动一个 goroutine 来读取管道内容并发送到前端
 	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := r.Read(buf)
-			if err != nil {
-				break
-			}
-			if n > 0 {
-				msg := string(buf[:n])
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
 				// 发送到前端
-				wailsRuntime.EventsEmit(ctx, "log", msg)
+				wailsRuntime.EventsEmit(ctx, "log", line+"\n")
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			log.Printf("日志读取错误: %v", err)
 		}
 	}()
 
