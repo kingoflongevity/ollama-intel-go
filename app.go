@@ -2722,6 +2722,17 @@ type OpenAIModelsResponse struct {
 
 // handleOpenAIChatCompletions 处理OpenAI兼容的聊天完成请求
 func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request) {
+	// 设置CORS头，允许外部工具调用
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// 处理预检请求
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// 检查请求方法
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -2747,6 +2758,8 @@ func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("[OpenAI API] 收到聊天请求: 模型=%s, 流式=%v, 消息数=%d", req.Model, req.Stream, len(req.Messages))
 
 	// 检查是否启用了OpenAI兼容API
 	if enabled, ok := a.environmentVariables["OLLAMA_OPENAI_COMPATIBLE"]; !ok || !enabled.(bool) {
@@ -2785,37 +2798,69 @@ func (a *App) handleOpenAIChatCompletions(w http.ResponseWriter, r *http.Request
 
 // handleOpenAIStreamResponse 处理OpenAI兼容的流式响应
 func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest) {
+	log.Printf("[OpenAI API] 开始流式响应: 模型=%s", req.Model)
+
 	// 设置响应头
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// 使用HTTP API进行聊天
-	client := &http.Client{Timeout: 60 * time.Second}
+	// 使用HTTP API进行聊天，增加超时时间
+	client := &http.Client{
+		Timeout: 180 * time.Second,
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 180 * time.Second,
+			ExpectContinueTimeout: 30 * time.Second,
+		},
+	}
 
 	// 构建请求体
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		w.Write([]byte("error: Invalid request\n\n"))
+		log.Printf("[OpenAI API] 构建请求失败: %v", err)
+		w.Write([]byte("data: {\"error\": \"Invalid request\"}\n\n"))
+		w.(http.Flusher).Flush()
 		return
 	}
+
+	log.Printf("[OpenAI API] 发送请求到Ollama服务")
 
 	// 发送请求
 	resp, err := client.Post("http://127.0.0.1:11434/api/chat", "application/json", bytes.NewBuffer(reqBody))
 	if err != nil {
-		w.Write([]byte("error: Failed to connect to Ollama service\n\n"))
+		log.Printf("[OpenAI API] 连接Ollama服务失败: %v", err)
+		w.Write([]byte("data: {\"error\": \"Failed to connect to Ollama service\"}\n\n"))
+		w.(http.Flusher).Flush()
 		return
 	}
 	defer resp.Body.Close()
 
+	log.Printf("[OpenAI API] Ollama响应状态: %d", resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[OpenAI API] Ollama错误响应: %s", string(body))
+		w.Write([]byte(fmt.Sprintf("data: {\"error\": \"Ollama error: %d\"}\n\n", resp.StatusCode)))
+		w.(http.Flusher).Flush()
+		return
+	}
+
 	// 处理流式响应
 	scanner := bufio.NewScanner(resp.Body)
+	// 增加scanner的缓冲区大小
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	
 	var fullContent strings.Builder
 	responseID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
 	created := time.Now().Unix()
+	chunkCount := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		if line == "" {
+			continue
+		}
 
 		// 解析单行JSON
 		var chunk struct {
@@ -2827,12 +2872,42 @@ func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest)
 		}
 
 		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			log.Printf("[OpenAI API] 解析响应失败: %v, 行: %s", err, line)
 			continue
+		}
+
+		// 处理错误
+		if chunk.Error != "" {
+			log.Printf("[OpenAI API] Ollama返回错误: %s", chunk.Error)
+			errorResp := OpenAIStreamResponse{
+				ID:      responseID,
+				Object:  "chat.completion.chunk",
+				Created: created,
+				Model:   req.Model,
+				Choices: []struct {
+					Index        int                    `json:"index"`
+					Delta        map[string]interface{} `json:"delta"`
+					FinishReason string                 `json:"finish_reason"`
+				}{
+					{
+						Index:        0,
+						Delta:        map[string]interface{}{"content": fmt.Sprintf("Error: %s", chunk.Error)},
+						FinishReason: "error",
+					},
+				},
+			}
+			w.Write([]byte("data: "))
+			json.NewEncoder(w).Encode(errorResp)
+			w.Write([]byte("\n"))
+			w.Write([]byte("data: [DONE]\n\n"))
+			w.(http.Flusher).Flush()
+			return
 		}
 
 		// 累积内容
 		if chunk.Message.Content != "" {
 			fullContent.WriteString(chunk.Message.Content)
+			chunkCount++
 
 			// 构建OpenAI流式响应
 			streamResp := OpenAIStreamResponse{
@@ -2848,7 +2923,6 @@ func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest)
 					{
 						Index: 0,
 						Delta: map[string]interface{}{
-							"role":    "assistant",
 							"content": chunk.Message.Content,
 						},
 					},
@@ -2864,6 +2938,8 @@ func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest)
 
 		// 当完成时，发送最终响应
 		if chunk.Done {
+			log.Printf("[OpenAI API] 流式响应完成: 总长度=%d, chunk数=%d", fullContent.Len(), chunkCount)
+			
 			// 构建完成响应
 			finishResp := OpenAIStreamResponse{
 				ID:      responseID,
@@ -2892,16 +2968,24 @@ func (a *App) handleOpenAIStreamResponse(w http.ResponseWriter, req ChatRequest)
 			break
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		log.Printf("[OpenAI API] 读取响应失败: %v", err)
+	}
 }
 
 // handleOpenAINonStreamResponse 处理OpenAI兼容的非流式响应
 func (a *App) handleOpenAINonStreamResponse(req ChatRequest) OpenAIChatResponse {
+	log.Printf("[OpenAI API] 处理非流式响应: 模型=%s", req.Model)
+	
 	// 使用现有的ChatCompletion方法获取响应
 	ollamaResp := a.ChatCompletion(req)
 
 	// 构建OpenAI响应
 	responseID := fmt.Sprintf("chatcmpl-%d", time.Now().UnixNano())
 	created := time.Now().Unix()
+
+	log.Printf("[OpenAI API] 非流式响应完成: 内容长度=%d", len(ollamaResp.Message.Content))
 
 	return OpenAIChatResponse{
 		ID:      responseID,
@@ -2936,6 +3020,17 @@ func (a *App) handleOpenAINonStreamResponse(req ChatRequest) OpenAIChatResponse 
 
 // handleOpenAIModels 处理OpenAI兼容的模型列表请求
 func (a *App) handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
+	// 设置CORS头
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// 处理预检请求
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// 检查请求方法
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -2982,6 +3077,17 @@ func (a *App) handleOpenAIModels(w http.ResponseWriter, r *http.Request) {
 
 // handleOpenAIModel 处理OpenAI兼容的单个模型请求
 func (a *App) handleOpenAIModel(w http.ResponseWriter, r *http.Request) {
+	// 设置CORS头
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+	// 处理预检请求
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// 检查请求方法
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
