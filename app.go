@@ -135,6 +135,34 @@ func (a *App) startup(ctx context.Context) {
 	log.SetOutput(a.logger)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	// 重定向 os.Stdout 和 os.Stderr 到日志写入器
+	// 这样可以捕获 GIN 框架和其他库的输出
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	os.Stderr = w
+
+	// 启动一个 goroutine 来读取管道内容并发送到前端
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			n, err := r.Read(buf)
+			if err != nil {
+				break
+			}
+			if n > 0 {
+				msg := string(buf[:n])
+				// 发送到前端
+				wailsRuntime.EventsEmit(ctx, "log", msg)
+				// 同时写入原始 stdout/stderr
+				if oldStdout != nil {
+					oldStdout.Write(buf[:n])
+				}
+			}
+		}
+	}()
+
 	// 初始化环境变量存储
 	a.environmentVariables = make(map[string]interface{})
 	// 设置默认值
