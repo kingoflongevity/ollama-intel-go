@@ -1,5 +1,38 @@
-build/bin
-node_modules
-frontend/dist
+# Build directories
+build/bin/
+build/windows/installer/
+
+# Dependencies
+node_modules/
+frontend/dist/
+
+# Development files
+*.log
+ollama_path_debug.txt
+debug.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development directories
 ollama-intel-ubuntu/
 ollama-intel-win/
+release/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Test files
+*_test.go
+*_test.py
