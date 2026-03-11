@@ -132,9 +132,8 @@ func (a *App) startup(ctx context.Context) {
 	log.SetOutput(a.logger)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	// 保存原始的 stdout 和 stderr，以便同时输出到控制台
+	// 保存原始的 stdout，以便同时输出到控制台
 	originalStdout := os.Stdout
-	originalStderr := os.Stderr
 
 	// 重定向 os.Stdout 和 os.Stderr 到日志写入器
 	// 这样可以捕获 GIN 框架和其他库的输出
