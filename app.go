@@ -132,18 +132,24 @@ func (a *App) startup(ctx context.Context) {
 	log.SetOutput(a.logger)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
+	// 保存原始的 stdout 和 stderr，以便同时输出到控制台
+	originalStdout := os.Stdout
+	originalStderr := os.Stderr
+
 	// 重定向 os.Stdout 和 os.Stderr 到日志写入器
 	// 这样可以捕获 GIN 框架和其他库的输出
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 启动一个 goroutine 来读取管道内容并发送到前端
+	// 启动一个 goroutine 来读取管道内容并发送到前端和控制台
 	go func() {
 		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line != "" {
+				// 同时输出到控制台
+				fmt.Fprintln(originalStdout, line)
 				// 发送到前端
 				wailsRuntime.EventsEmit(ctx, "log", line+"\n")
 			}
