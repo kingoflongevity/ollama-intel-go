@@ -5,13 +5,13 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "ollama英特尔"
+    !define INFO_PROJECTNAME "ollama intel"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "ollama英特尔"
+    !define INFO_COMPANYNAME "ollama intel"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "ollama英特尔"
+    !define INFO_PRODUCTNAME "ollama intel"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "1.0.0"

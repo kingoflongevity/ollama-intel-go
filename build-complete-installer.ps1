@@ -59,7 +59,7 @@ $readmeContent = @"
 
 ## Installation
 1. Extract all files to a directory (e.g., C:\Program Files\ollama-intel)
-2. Run the main executable
+2. Run ollama-intel.exe
 3. The application will automatically start the built-in Ollama service
 
 ## Features
@@ -70,7 +70,7 @@ $readmeContent = @"
 - AI chat functionality
 
 ## Directory Structure
-- Main executable - Main application
+- ollama-intel.exe - Main application
 - ollama-bin/ - Ollama binary files and dependencies
 
 ## Notes
@@ -99,8 +99,11 @@ Write-Host "Build completed successfully!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Generated files:" -ForegroundColor Cyan
+Write-Host "  - Application: $releaseDir\ollama-intel.exe" -ForegroundColor White
+Write-Host "  - Ollama binaries: $releaseDir\ollama-bin\" -ForegroundColor White
 Write-Host "  - Distribution package: $zipPath" -ForegroundColor White
-Write-Host "  - Wails installer: $buildDir\ollama英特尔-amd64-installer.exe" -ForegroundColor White
+Write-Host ""
+Write-Host "Wails installer: $buildDir\ollama-intel-amd64-installer.exe" -ForegroundColor White
 Write-Host ""
 Write-Host "Note: The Wails installer may not include ollama-bin directory." -ForegroundColor Yellow
 Write-Host "Use the ZIP package for complete distribution." -ForegroundColor Yellow
