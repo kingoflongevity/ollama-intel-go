@@ -78,11 +78,13 @@
           </template>
           <el-form label-width="180px">
             <el-form-item label="模型下载源">
-              <el-select v-model="environmentVariables.OLLAMA_MODEL_SOURCE" placeholder="选择模型下载源">
-                <el-option label="ModelScope (默认)" value="modelscope" />
-                <el-option label="Ollama 官方" value="ollama" />
+              <el-select v-model="environmentVariables.OLLAMA_MODEL_SOURCE" placeholder="选择模型下载源" style="width: 100%">
+                <el-option label="ModelScope (国内推荐)" value="modelscope" />
+                <el-option label="Ollama 官方 (国外推荐)" value="ollama" />
+                <el-option label="HuggingFace 镜像" value="hf-mirror" />
+                <el-option label="阿里云镜像" value="aliyun" />
               </el-select>
-              <div class="form-help">设置模型的下载来源</div>
+              <div class="form-help">选择合适的镜像源可以加速模型下载。国内用户推荐使用 ModelScope</div>
             </el-form-item>
             <el-form-item label="上下文长度">
               <el-input-number 

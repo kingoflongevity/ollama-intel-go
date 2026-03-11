@@ -600,8 +600,16 @@ func (a *App) pullModelWithProgress(modelName string) {
 	// 应用环境变量
 	env := os.Environ()
 	for key, value := range a.environmentVariables {
-		if strValue, ok := value.(string); ok && strValue != "" {
+		// 跳过空值
+		if strValue, ok := value.(string); ok {
+			if strValue == "" {
+				continue
+			}
 			env = append(env, fmt.Sprintf("%s=%s", key, strValue))
+			// 记录关键环境变量
+			if key == "OLLAMA_MODEL_SOURCE" {
+				log.Printf("使用镜像源: %s", strValue)
+			}
 		} else if boolValue, ok := value.(bool); ok {
 			if boolValue {
 				env = append(env, fmt.Sprintf("%s=true", key))
