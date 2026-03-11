@@ -124,9 +124,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  background: var(--bg-tertiary);
+  background: rgba(15, 15, 25, 0.8);
   backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.2);
   position: relative;
   z-index: 100;
 }
@@ -206,8 +206,8 @@ onMounted(() => {
   width: 220px;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
+  background: rgba(15, 15, 25, 0.6);
+  border-right: 1px solid rgba(6, 182, 212, 0.15);
   position: relative;
   z-index: 10;
 }
@@ -230,7 +230,7 @@ onMounted(() => {
 
 .sidebar-header {
   padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
 }
 
 .sidebar-title {
@@ -267,7 +267,7 @@ onMounted(() => {
   padding: 12px 14px;
   margin-bottom: 4px;
   border-radius: 10px;
-  color: var(--text-secondary);
+  color: #94a3b8;
   text-decoration: none;
   position: relative;
   transition: all 0.3s ease;
@@ -275,13 +275,13 @@ onMounted(() => {
 }
 
 .nav-item:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: rgba(30, 41, 59, 0.6);
+  color: #e2e8f0;
 }
 
 .nav-item.active {
-  background: var(--gradient-primary-light);
-  color: var(--color-primary);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  color: #06b6d4;
   box-shadow: 
     inset 0 1px 0 rgba(6, 182, 212, 0.2),
     0 4px 12px rgba(6, 182, 212, 0.15);
