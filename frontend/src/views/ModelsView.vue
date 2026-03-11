@@ -60,6 +60,7 @@
             </div>
             <div class="model-info">
               <h4 class="model-name">{{ model.name }}</h4>
+              <span class="model-id">ID: {{ getModelId(model.name) }}</span>
               <span class="model-size">{{ model.size }}</span>
             </div>
           </div>
@@ -268,6 +269,15 @@ const formatDate = (dateString) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN')
+}
+
+const getModelId = (modelName) => {
+  if (!modelName) return '-'
+  const parts = modelName.split(':')
+  if (parts.length === 2) {
+    return parts[1]
+  }
+  return '-'
 }
 
 const getModelFamilies = (families) => {
@@ -783,6 +793,16 @@ onMounted(() => {
   font-size: 15px;
   font-weight: 600;
   color: #e2e8f0;
+}
+
+.model-id {
+  font-size: 11px;
+  color: #06b6d4;
+  font-family: monospace;
+  background: rgba(6, 182, 212, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
 }
 
 .model-size {

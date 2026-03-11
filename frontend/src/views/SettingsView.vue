@@ -98,6 +98,10 @@
                 >
                   {{ serviceStatus.running ? '停止服务' : '启动服务' }}
                 </button>
+                <button class="tech-btn" @click="restartService" title="重启服务">
+                  <el-icon><RefreshRight /></el-icon>
+                  重启
+                </button>
               </div>
             </div>
             <div class="setting-item">
@@ -476,6 +480,27 @@ const toggleService = async () => {
   } catch (error) {
     console.error('服务控制失败:', error)
     ElMessage.error('服务控制失败')
+  }
+}
+
+const restartService = async () => {
+  try {
+    ElMessage.info('正在重启服务...')
+    
+    if (serviceStatus.value.running) {
+      await StopService()
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+    
+    await StartService()
+    ElMessage.success('服务重启成功')
+    
+    setTimeout(() => {
+      loadServiceStatus()
+    }, 1000)
+  } catch (error) {
+    console.error('重启服务失败:', error)
+    ElMessage.error('重启服务失败')
   }
 }
 

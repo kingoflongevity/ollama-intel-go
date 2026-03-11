@@ -342,8 +342,21 @@ onMounted(() => {
 
 .tech-main-content {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.tech-main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tech-main-content::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.tech-main-content::-webkit-scrollbar-thumb {
+  background: rgba(6, 182, 212, 0.3);
+  border-radius: 3px;
 }
 </style>
