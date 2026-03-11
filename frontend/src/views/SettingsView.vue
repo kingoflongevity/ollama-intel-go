@@ -244,7 +244,7 @@
                 <div class="setting-item">
                   <div class="setting-info">
                     <span class="setting-label">API 密钥</span>
-                    <span class="setting-desc">设置用于验证 API 调用的密钥（可选）</span>
+                    <span class="setting-desc">设置用于验证 API 调用的密钥（可选，留空则不验证）</span>
                   </div>
                   <div class="setting-control">
                     <el-input v-model="environmentVariables.OLLAMA_OPENAI_API_KEY" placeholder="设置 API 密钥（可选）" class="tech-input" />
@@ -252,17 +252,17 @@
                 </div>
                 <div class="setting-item">
                   <div class="setting-info">
-                    <span class="setting-label">API 端口</span>
-                    <span class="setting-desc">设置 OpenAI 兼容 API 服务端口</span>
+                    <span class="setting-label">服务端口</span>
+                    <span class="setting-desc">OpenAI 兼容 API 服务端口（默认 11435，重启应用后生效）</span>
                   </div>
                   <div class="setting-control">
-                    <el-input-number v-model="environmentVariables.OLLAMA_OPENAI_PORT" :min="1024" :max="65535" :step="1" class="tech-number" />
+                    <el-input-number v-model="configStore.config.value.wsPort" :min="1024" :max="65535" :step="1" class="tech-number" />
                   </div>
                 </div>
                 <div class="setting-item">
                   <div class="setting-info">
                     <span class="setting-label">API 调用地址</span>
-                    <span class="setting-desc">OpenAI 兼容 API 地址（外部工具请使用此地址）</span>
+                    <span class="setting-desc">外部工具（如 Cursor、VSCode 插件等）请使用此地址</span>
                   </div>
                   <div class="setting-control">
                     <div class="api-url-box">
@@ -272,6 +272,26 @@
                         复制
                       </button>
                     </div>
+                  </div>
+                </div>
+                <div class="api-usage-tips">
+                  <div class="tips-header">
+                    <el-icon><InfoFilled /></el-icon>
+                    <span>使用说明</span>
+                  </div>
+                  <div class="tips-content">
+                    <p><strong>聊天接口:</strong> <code>{{ openaiApiUrl }}/chat/completions</code></p>
+                    <p><strong>模型列表:</strong> <code>{{ openaiApiUrl }}/models</code></p>
+                    <p><strong>示例代码:</strong></p>
+                    <pre class="code-example">from openai import OpenAI
+client = OpenAI(
+    base_url="{{ openaiApiUrl }}",
+    api_key="any"  # 可选
+)
+response = client.chat.completions.create(
+    model="qwen3:8b",
+    messages=[{"role": "user", "content": "你好"}]
+)</pre>
                   </div>
                 </div>
               </template>
@@ -1112,5 +1132,50 @@ onMounted(() => {
 .about-actions {
   display: flex;
   gap: 12px;
+}
+
+.api-usage-tips {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 12px;
+}
+
+.tips-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #06b6d4;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tips-content p {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.tips-content code {
+  background: rgba(30, 41, 59, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  color: #10b981;
+}
+
+.code-example {
+  background: rgba(15, 15, 25, 0.8);
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Menlo', 'Monaco', monospace;
+  font-size: 11px;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.6;
 }
 </style>
