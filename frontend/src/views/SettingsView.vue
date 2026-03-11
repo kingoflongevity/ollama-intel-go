@@ -262,7 +262,7 @@
                 <div class="setting-item">
                   <div class="setting-info">
                     <span class="setting-label">API 调用地址</span>
-                    <span class="setting-desc">Ollama 内置的 OpenAI 兼容 API 地址</span>
+                    <span class="setting-desc">OpenAI 兼容 API 地址（外部工具请使用此地址）</span>
                   </div>
                   <div class="setting-control">
                     <div class="api-url-box">
@@ -601,8 +601,9 @@ const loadCurrentOllamaPath = async () => {
 }
 
 const openaiApiUrl = computed(() => {
-  const host = configStore.config.value.ollamaHost || '127.0.0.1:11434'
-  return `http://${host}/v1`
+  const host = configStore.config.value.ollamaHost?.split(':')[0] || '127.0.0.1'
+  const wsPort = configStore.config.value.wsPort || 11435
+  return `http://${host}:${wsPort}/v1`
 })
 
 const copyApiUrl = async () => {

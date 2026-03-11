@@ -169,6 +169,9 @@ func (a *App) startup(ctx context.Context) {
 	a.environmentVariables["OLLAMA_INTEL_GPU"] = true
 	a.environmentVariables["OLLAMA_DEBUG"] = false
 	a.environmentVariables["ONEAPI_DEVICE_SELECTOR"] = ""
+	// 允许跨域访问和外部访问
+	a.environmentVariables["OLLAMA_ORIGINS"] = "*"
+	a.environmentVariables["OLLAMA_HOST"] = "0.0.0.0:11434"
 	// OpenAI兼容API默认值
 	a.environmentVariables["OLLAMA_OPENAI_COMPATIBLE"] = true
 	a.environmentVariables["OLLAMA_OPENAI_PORT"] = 8080
