@@ -2478,8 +2478,10 @@ func (a *App) initHTTPServer() {
 		}
 	}()
 
-	// 启动OpenAI兼容API服务器
-	go a.initOpenAIServer()
+	// 注意: Ollama 服务本身已内置 OpenAI 兼容 API (端口 11434)
+	// 不需要启动额外的 OpenAI 兼容 API 服务器
+	// OpenAI 兼容 API 地址: http://localhost:11434/v1
+	log.Println("OpenAI兼容API由Ollama服务提供，地址: http://localhost:11434/v1")
 }
 
 // OpenAIChatRequest OpenAI兼容的聊天请求
