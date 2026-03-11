@@ -190,7 +190,13 @@ func (a *App) startup(ctx context.Context) {
 
 	// 启动 Ollama 服务
 	log.Println("startup: 启动 Ollama 服务")
-	go a.startOllamaService()
+	go func() {
+		if err := a.startOllamaService(); err != nil {
+			log.Printf("startup: 启动 Ollama 服务失败: %v\n", err)
+		} else {
+			log.Println("startup: Ollama 服务启动成功")
+		}
+	}()
 	log.Println("startup: 初始化完成")
 }
 
@@ -2488,6 +2494,7 @@ func (a *App) setOllamaPath() {
 	// 获取当前可执行文件所在目录
 	exePath, err := os.Executable()
 	if err != nil {
+		log.Printf("setOllamaPath: 获取可执行文件路径失败: %v\n", err)
 		exePath = "."
 	}
 	exeDir := filepath.Dir(exePath)
@@ -2503,11 +2510,11 @@ func (a *App) setOllamaPath() {
 
 	// 检查文件是否存在
 	if _, err := os.Stat(a.ollamaPath); os.IsNotExist(err) {
-		log.Printf("setOllamaPath: 文件不存在, 回退到系统 PATH 中的 ollama\n")
+		log.Printf("setOllamaPath: 文件不存在 (%s), 回退到系统 PATH 中的 ollama\n", a.ollamaPath)
 		// 如果不存在，尝试使用系统 PATH 中的 ollama
 		a.ollamaPath = "ollama"
 	} else {
-		log.Printf("setOllamaPath: 文件存在\n")
+		log.Printf("setOllamaPath: 文件存在: %s\n", a.ollamaPath)
 	}
 
 	// 将路径写入文件以便调试
