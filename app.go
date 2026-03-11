@@ -2495,9 +2495,9 @@ func (a *App) setOllamaPath() {
 
 	// 根据操作系统设置二进制文件路径
 	if runtime.GOOS == "windows" {
-		a.ollamaPath = filepath.Join(exeDir, "ollama-intel-win", "ollama.exe")
+		a.ollamaPath = filepath.Join(exeDir, "ollama-bin", "ollama.exe")
 	} else {
-		a.ollamaPath = filepath.Join(exeDir, "ollama-intel-ubuntu", "ollama")
+		a.ollamaPath = filepath.Join(exeDir, "ollama-bin", "ollama")
 	}
 	log.Printf("setOllamaPath: 设置的路径: %s\n", a.ollamaPath)
 
