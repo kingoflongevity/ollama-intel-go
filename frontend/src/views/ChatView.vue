@@ -56,7 +56,7 @@
           <p>选择一个模型，输入您的问题开始对话</p>
           <div class="quick-actions">
             <div class="quick-action" @click="setQuickPrompt('帮我写一段Python代码')">
-              <el-icon><Code /></el-icon>
+              <el-icon><Document /></el-icon>
               <span>编写代码</span>
             </div>
             <div class="quick-action" @click="setQuickPrompt('解释一下什么是机器学习')">
@@ -64,7 +64,7 @@
               <span>知识问答</span>
             </div>
             <div class="quick-action" @click="setQuickPrompt('帮我翻译这段文字')">
-              <el-icon><Translate /></el-icon>
+              <el-icon><Edit /></el-icon>
               <span>翻译文本</span>
             </div>
           </div>
@@ -161,14 +161,16 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
-import { User, ChatDotRound, Promotion, Search, Operation, Delete, Code, Reading, Translate } from '@element-plus/icons-vue'
+import { User, ChatDotRound, Promotion, Search, Operation, Delete, Document, Reading, Edit } from '@element-plus/icons-vue'
 import { ListModels } from '../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useSessionStore } from '@/stores/sessionStore'
+import { useConfigStore } from '@/stores/configStore'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const configStore = useConfigStore()
 
 const messages = ref([])
 const inputMessage = ref('')
@@ -205,7 +207,8 @@ const formatMessage = (text) => {
 
 const connectWebSocket = () => {
   try {
-    const wsUrl = `ws://127.0.0.1:11435/ws/chat`
+    const wsUrl = configStore.getWebSocketUrl()
+    console.log('正在连接WebSocket:', wsUrl)
     ws.value = new WebSocket(wsUrl)
     
     ws.value.onopen = () => {
@@ -373,7 +376,10 @@ const sendMessageWithHTTP = async () => {
       stream: true
     }
 
-    const response = await fetch('http://127.0.0.1:11434/api/chat', {
+    const apiUrl = configStore.getOllamaApiUrl()
+    console.log('正在连接Ollama API:', apiUrl)
+    
+    const response = await fetch(`${apiUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)

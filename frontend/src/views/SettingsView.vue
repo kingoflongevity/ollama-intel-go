@@ -103,10 +103,14 @@
             <div class="setting-item">
               <div class="setting-info">
                 <span class="setting-label">服务地址</span>
-                <span class="setting-desc">Ollama API 监听地址</span>
+                <span class="setting-desc">Ollama API 监听地址 (可修改)</span>
               </div>
               <div class="setting-control">
-                <el-input v-model="serviceAddress" disabled class="tech-input" />
+                <el-input v-model="serviceAddress" class="tech-input" placeholder="例如: 127.0.0.1:11434" />
+                <button class="tech-btn tech-btn-primary tech-btn-sm" @click="saveServiceAddress">
+                  <el-icon><Check /></el-icon>
+                  保存
+                </button>
               </div>
             </div>
             <div class="setting-item">
@@ -398,6 +402,9 @@ import { ref, onMounted, computed } from 'vue'
 import { Setting, Monitor, Cpu, InfoFilled, Check, CopyDocument, Link, Document, Refresh } from '@element-plus/icons-vue'
 import { GetServiceStatus, StartService, StopService, GetEnvironmentInfo, GetIntelOptimizationInfo, GetEnvironmentVariables, SaveEnvironmentVariables, GetOllamaPath } from '../../wailsjs/go/main/App'
 import { ElMessage } from 'element-plus'
+import { useConfigStore } from '@/stores/configStore'
+
+const configStore = useConfigStore()
 
 const tabs = [
   { name: 'general', label: '通用', icon: Setting },
@@ -476,11 +483,28 @@ const loadServiceStatus = async () => {
   try {
     const status = await GetServiceStatus()
     serviceStatus.value = status
-    serviceAddress.value = status.host
+    serviceAddress.value = configStore.config.value.ollamaHost || status.host
     serviceVersion.value = status.version
   } catch (error) {
     console.error('获取服务状态失败:', error)
+    serviceAddress.value = configStore.config.value.ollamaHost
   }
+}
+
+const saveServiceAddress = () => {
+  if (!serviceAddress.value) {
+    ElMessage.warning('请输入服务地址')
+    return
+  }
+  
+  const addressPattern = /^[\w.-]+:\d+$/
+  if (!addressPattern.test(serviceAddress.value)) {
+    ElMessage.warning('服务地址格式不正确，例如: 127.0.0.1:11434')
+    return
+  }
+  
+  configStore.updateConfig({ ollamaHost: serviceAddress.value })
+  ElMessage.success('服务地址已保存，刷新页面后生效')
 }
 
 const loadHardwareInfo = async () => {
