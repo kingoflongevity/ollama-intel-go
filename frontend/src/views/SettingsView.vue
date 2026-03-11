@@ -79,12 +79,25 @@
           <el-form label-width="180px">
             <el-form-item label="模型下载源">
               <el-select v-model="environmentVariables.OLLAMA_MODEL_SOURCE" placeholder="选择模型下载源" style="width: 100%">
-                <el-option label="ModelScope (国内推荐)" value="modelscope" />
-                <el-option label="Ollama 官方 (国外推荐)" value="ollama" />
-                <el-option label="HuggingFace 镜像" value="hf-mirror" />
+                <el-option label="Ollama 官方 (默认)" value="" />
+                <el-option label="ModelScope 镜像 (国内推荐)" value="modelscope" />
                 <el-option label="阿里云镜像" value="aliyun" />
               </el-select>
-              <div class="form-help">选择合适的镜像源可以加速模型下载。国内用户推荐使用 ModelScope</div>
+              <div class="form-help">选择合适的镜像源可以加速模型下载。如果拉取失败，请尝试切换镜像源或更新Ollama版本</div>
+            </el-form-item>
+            <el-form-item label="允许跨域请求">
+              <el-input 
+                v-model="environmentVariables.OLLAMA_ORIGINS" 
+                placeholder="例如: * 或 http://localhost:3000"
+              />
+              <div class="form-help">设置允许跨域请求的源，* 表示允许所有来源</div>
+            </el-form-item>
+            <el-form-item label="Ollama 服务地址">
+              <el-input 
+                v-model="environmentVariables.OLLAMA_HOST" 
+                placeholder="例如: 0.0.0.0:11434"
+              />
+              <div class="form-help">设置 Ollama 服务监听地址，默认 127.0.0.1:11434</div>
             </el-form-item>
             <el-form-item label="上下文长度">
               <el-input-number 
@@ -278,7 +291,9 @@ const hardwareInfo = ref({
 })
 const buildTime = ref(new Date().toLocaleDateString())
 const environmentVariables = ref({
-  OLLAMA_MODEL_SOURCE: 'modelscope',
+  OLLAMA_MODEL_SOURCE: '',
+  OLLAMA_ORIGINS: '*',
+  OLLAMA_HOST: '',
   OLLAMA_NUM_CTX: 2048,
   ONEAPI_DEVICE_SELECTOR: '',
   OLLAMA_INTEL_GPU: true,

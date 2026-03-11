@@ -597,15 +597,10 @@ func (a *App) pullModelWithProgress(modelName string) {
 	// 发送开始事件
 	a.sendPullProgressEvent(modelName, "started", 0, "开始拉取模型")
 
-	// 应用环境变量
+	// 构建环境变量
 	env := os.Environ()
 	
-	// 首先添加系统环境变量
-	for _, e := range os.Environ() {
-		env = append(env, e)
-	}
-	
-	// 然后添加用户配置的环境变量（会覆盖系统变量）
+	// 添加用户配置的环境变量（会覆盖系统变量）
 	for key, value := range a.environmentVariables {
 		// 跳过空值
 		if strValue, ok := value.(string); ok {
@@ -625,8 +620,8 @@ func (a *App) pullModelWithProgress(modelName string) {
 				env = append(env, fmt.Sprintf("%s=%s", key, strValue))
 			}
 			// 记录关键环境变量
-			if key == "OLLAMA_MODEL_SOURCE" {
-				log.Printf("使用镜像源: %s", strValue)
+			if key == "OLLAMA_MODEL_SOURCE" || key == "OLLAMA_ORIGINS" || key == "OLLAMA_HOST" {
+				log.Printf("配置环境变量 %s=%s", key, strValue)
 			}
 		} else if boolValue, ok := value.(bool); ok {
 			if boolValue {
@@ -637,8 +632,8 @@ func (a *App) pullModelWithProgress(modelName string) {
 		}
 	}
 
-	// 记录所有环境变量用于调试
-	log.Printf("模型拉取环境变量: %v", env)
+	// 记录关键环境变量用于调试
+	log.Printf("模型拉取: %s, 环境变量数量: %d", modelName, len(env))
 
 	cmd := exec.Command(a.ollamaPath, "pull", modelName)
 	cmd.Env = env
