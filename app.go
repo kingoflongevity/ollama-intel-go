@@ -161,6 +161,11 @@ func (a *App) startup(ctx context.Context) {
 		}
 	}()
 
+	// 输出启动日志到控制台和文件
+	startupMsg := "========== APPLICATION STARTUP ==========\n"
+	originalStdout.Write([]byte(startupMsg))
+	log.Print(startupMsg)
+
 	// 初始化环境变量存储
 	a.environmentVariables = make(map[string]interface{})
 	// 设置默认值
@@ -180,12 +185,16 @@ func (a *App) startup(ctx context.Context) {
 	log.Println("startup: 开始初始化")
 
 	// 设置 Ollama 二进制文件路径
+	log.Println("startup: 设置Ollama路径")
 	a.setOllamaPath()
+	log.Printf("startup: Ollama路径设置为: %s\n", a.ollamaPath)
 
 	// 加载配置文件
+	log.Println("startup: 加载配置文件")
 	a.loadConfig()
 
 	// 初始化HTTP服务器，添加WebSocket路由
+	log.Println("startup: 初始化HTTP服务器")
 	a.initHTTPServer()
 
 	// 启动 Ollama 服务（同步执行以便调试）
