@@ -137,8 +137,6 @@ func (a *App) startup(ctx context.Context) {
 
 	// 重定向 os.Stdout 和 os.Stderr 到日志写入器
 	// 这样可以捕获 GIN 框架和其他库的输出
-	oldStdout := os.Stdout
-	oldStderr := os.Stderr
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
@@ -155,10 +153,6 @@ func (a *App) startup(ctx context.Context) {
 				msg := string(buf[:n])
 				// 发送到前端
 				wailsRuntime.EventsEmit(ctx, "log", msg)
-				// 同时写入原始 stdout/stderr
-				if oldStdout != nil {
-					oldStdout.Write(buf[:n])
-				}
 			}
 		}
 	}()
