@@ -2500,26 +2500,41 @@ func (a *App) setOllamaPath() {
 	exeDir := filepath.Dir(exePath)
 	log.Printf("setOllamaPath: 可执行文件目录: %s\n", exeDir)
 
-	// 根据操作系统设置二进制文件路径
+	// 可能的ollama-bin路径列表（按优先级）
+	var possiblePaths []string
 	if runtime.GOOS == "windows" {
-		a.ollamaPath = filepath.Join(exeDir, "ollama-bin", "ollama.exe")
+		// 1. 可执行文件目录下的ollama-bin（生产环境：安装目录）
+		possiblePaths = append(possiblePaths, filepath.Join(exeDir, "ollama-bin", "ollama.exe"))
+		// 2. 项目根目录下的ollama-bin（开发环境）
+		possiblePaths = append(possiblePaths, filepath.Join(exeDir, "..", "..", "ollama-bin", "ollama.exe"))
+		// 3. 当前工作目录下的ollama-bin
+		possiblePaths = append(possiblePaths, filepath.Join(".", "ollama-bin", "ollama.exe"))
 	} else {
-		a.ollamaPath = filepath.Join(exeDir, "ollama-bin", "ollama")
-	}
-	log.Printf("setOllamaPath: 设置的路径: %s\n", a.ollamaPath)
-
-	// 检查文件是否存在
-	if _, err := os.Stat(a.ollamaPath); os.IsNotExist(err) {
-		log.Printf("setOllamaPath: 文件不存在 (%s), 回退到系统 PATH 中的 ollama\n", a.ollamaPath)
-		// 如果不存在，尝试使用系统 PATH 中的 ollama
-		a.ollamaPath = "ollama"
-	} else {
-		log.Printf("setOllamaPath: 文件存在: %s\n", a.ollamaPath)
+		possiblePaths = append(possiblePaths, filepath.Join(exeDir, "ollama-bin", "ollama"))
+		possiblePaths = append(possiblePaths, filepath.Join(exeDir, "..", "..", "ollama-bin", "ollama"))
+		possiblePaths = append(possiblePaths, filepath.Join(".", "ollama-bin", "ollama"))
 	}
 
-	// 将路径写入文件以便调试
-	debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s\n文件存在: %v\n",
-		exeDir, a.ollamaPath, err == nil)
+	// 按优先级检查路径
+	for _, path := range possiblePaths {
+		absPath, _ := filepath.Abs(path)
+		log.Printf("setOllamaPath: 检查路径: %s\n", absPath)
+		if _, err := os.Stat(absPath); err == nil {
+			a.ollamaPath = absPath
+			log.Printf("setOllamaPath: 找到Ollama: %s\n", a.ollamaPath)
+			// 写入调试文件
+			debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s\n", exeDir, a.ollamaPath)
+			os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
+			return
+		}
+	}
+
+	// 如果都不存在，回退到系统PATH中的ollama
+	log.Printf("setOllamaPath: 所有路径都不存在，回退到系统 PATH 中的 ollama\n")
+	a.ollamaPath = "ollama"
+
+	// 写入调试文件
+	debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s (系统PATH)\n", exeDir, a.ollamaPath)
 	os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
 }
 
