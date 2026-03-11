@@ -40,30 +40,101 @@ type App struct {
 // 内存地址正则表达式
 var memoryAddressRegex = regexp.MustCompile(`0x[0-9a-fA-F]+`)
 
+// 进度条相关正则表达式
+var (
+	// 下载进度正则: pulling manifest, downloading, verifying, writing 等进度信息
+	progressRegex = regexp.MustCompile(`(?i)(pulling|downloading|verifying|writing|copying|extracting|success|complete)\s*(manifest|blob|layer|file|shasum)?\s*[:：]?\s*(\d+(\.\d+)?\s*(GB|MB|KB|B|%)?)?`)
+	// 百分比进度正则
+	percentRegex = regexp.MustCompile(`(?i)(\d+(\.\d+)?%|\d+\/\d+|\d+\s*(GB|MB|KB|B))`)
+	// 模型拉取进度正则
+	pullProgressRegex = regexp.MustCompile(`(?i)(pulling|downloading)\s+[\w\-\.]+\s*[:：]?\s*\d+%`)
+)
+
 // logWriter 是一个自定义的 io.Writer，将日志发送到前端
 type logWriter struct {
-	ctx context.Context
-	mu  sync.Mutex
+	ctx           context.Context
+	mu            sync.Mutex
+	lastLogMsg    string
+	lastLogType   string
+	lastLogTime   time.Time
+	logBuffer     strings.Builder
+	bufferTimer   *time.Timer
+	bufferMutex   sync.Mutex
 }
+
+// 日志类型
+const (
+	LogTypeNormal   = "normal"
+	LogTypeProgress = "progress"
+	LogTypeInfo     = "info"
+	LogTypeError    = "error"
+)
 
 // Write 实现 io.Writer 接口
 func (l *logWriter) Write(p []byte) (n int, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	msg := string(p)
+	msg := strings.TrimSpace(string(p))
+	if msg == "" {
+		return len(p), nil
+	}
 
 	// 过滤掉包含内存地址的输出
 	if memoryAddressRegex.MatchString(msg) {
 		return len(p), nil
 	}
 
-	// 发送日志事件到前端
-	if l.ctx != nil {
-		wailsRuntime.EventsEmit(l.ctx, "log", msg)
+	// 判断日志类型
+	logType := l.getLogType(msg)
+
+	// 对于进度类型的日志，使用更新模式而不是追加模式
+	if logType == LogTypeProgress {
+		l.emitLog(msg, logType, true)
+	} else {
+		l.emitLog(msg, logType, false)
 	}
 
 	return len(p), nil
+}
+
+// getLogType 判断日志类型
+func (l *logWriter) getLogType(msg string) string {
+	// 检查是否是进度类型日志
+	if progressRegex.MatchString(msg) || percentRegex.MatchString(msg) || pullProgressRegex.MatchString(msg) {
+		return LogTypeProgress
+	}
+	// 检查是否是错误类型
+	if strings.Contains(strings.ToLower(msg), "error") || strings.Contains(strings.ToLower(msg), "failed") {
+		return LogTypeError
+	}
+	// 检查是否是信息类型
+	if strings.Contains(msg, "INFO") || strings.Contains(msg, "SUCCESS") || strings.Contains(msg, "完成") {
+		return LogTypeInfo
+	}
+	return LogTypeNormal
+}
+
+// emitLog 发送日志到前端
+func (l *logWriter) emitLog(msg string, logType string, isUpdate bool) {
+	if l.ctx == nil {
+		return
+	}
+
+	// 构建日志数据
+	logData := map[string]interface{}{
+		"message":   msg,
+		"type":      logType,
+		"timestamp": time.Now().Format("15:04:05"),
+		"isUpdate":  isUpdate,
+	}
+
+	// 如果是进度更新，发送特殊事件让前端可以更新而不是追加
+	if isUpdate {
+		wailsRuntime.EventsEmit(l.ctx, "log-progress", logData)
+	}
+	// 同时发送普通日志事件（保持兼容性）
+	wailsRuntime.EventsEmit(l.ctx, "log", msg)
 }
 
 const (

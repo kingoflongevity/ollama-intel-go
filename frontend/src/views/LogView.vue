@@ -93,6 +93,7 @@ const logs = ref([])
 const filterText = ref('')
 const autoScroll = ref(true)
 const logContentRef = ref(null)
+const progressLogMap = ref(new Map())
 
 const errorCount = computed(() => logs.value.filter(log => log.level === 'ERROR').length)
 const warningCount = computed(() => logs.value.filter(log => log.level === 'WARNING').length)
@@ -102,6 +103,10 @@ onMounted(() => {
   
   EventsOn('log', (logMessage) => {
     addLog('INFO', logMessage)
+  })
+  
+  EventsOn('log-progress', (logData) => {
+    updateProgressLog(logData)
   })
   
   EventsOn('model_pull_progress', (eventData) => {
@@ -120,11 +125,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   EventsOff('log')
+  EventsOff('log-progress')
   EventsOff('model_pull_progress')
   EventsOff('service_status')
 })
 
-const addLog = (level, message) => {
+const addLog = (level, message, id = null) => {
   const timestamp = new Date()
   const timeStr = timestamp.toLocaleTimeString('zh-CN', {
     hour12: false,
@@ -133,11 +139,15 @@ const addLog = (level, message) => {
     second: '2-digit'
   })
   
+  const logId = id || `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  
   logs.value.push({
+    id: logId,
     time: timeStr,
     level,
     message,
-    timestamp
+    timestamp,
+    isProgress: false
   })
   
   if (logs.value.length > 1000) {
@@ -152,6 +162,49 @@ const addLog = (level, message) => {
       }
     })
   }
+  
+  return logId
+}
+
+const updateProgressLog = (logData) => {
+  const { message, type, timestamp, isUpdate } = logData
+  
+  const progressKey = extractProgressKey(message)
+  
+  if (progressKey && progressLogMap.value.has(progressKey)) {
+    const existingLogId = progressLogMap.value.get(progressKey)
+    const logIndex = logs.value.findIndex(log => log.id === existingLogId)
+    
+    if (logIndex !== -1) {
+      logs.value[logIndex] = {
+        ...logs.value[logIndex],
+        message: message,
+        time: timestamp,
+        isProgress: true
+      }
+      return
+    }
+  }
+  
+  const newLogId = addLog('INFO', message)
+  if (progressKey) {
+    progressLogMap.value.set(progressKey, newLogId)
+  }
+}
+
+const extractProgressKey = (message) => {
+  const pullMatch = message.match(/pulling\s+([\w\-\.]+)/i)
+  if (pullMatch) return `pull-${pullMatch[1]}`
+  
+  const downloadMatch = message.match(/downloading\s+([\w\-\.]+)/i)
+  if (downloadMatch) return `download-${downloadMatch[1]}`
+  
+  const percentMatch = message.match(/(\d+(?:\.\d+)?%)/)
+  if (percentMatch && message.includes('pulling')) {
+    return 'pull-progress'
+  }
+  
+  return null
 }
 
 const filteredLogs = computed(() => {
