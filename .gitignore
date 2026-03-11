@@ -10,6 +10,8 @@ frontend/dist/
 *.log
 ollama_path_debug.txt
 debug.txt
+check_service_debug.txt
+service_status_debug.txt
 
 # IDE
 .idea/
@@ -36,3 +38,6 @@ release/
 # Test files
 *_test.go
 *_test.py
+
+# ollama-bin directory (large files - use separate download)
+ollama-bin/
