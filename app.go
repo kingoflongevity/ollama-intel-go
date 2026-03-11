@@ -2609,11 +2609,15 @@ func (a *App) setOllamaPath() {
 		possiblePaths = append(possiblePaths, filepath.Join(".", "ollama-bin", "ollama"))
 	}
 
-	// 调试文件路径（写入到可执行文件所在目录）
-	debugFilePath := filepath.Join(exeDir, "ollama_path_debug.txt")
+	// 调试文件路径（写入到用户目录，避免权限问题）
+	userHome, _ := os.UserHomeDir()
+	debugFilePath := filepath.Join(userHome, ".ollama-intel", "ollama_path_debug.txt")
+	os.MkdirAll(filepath.Dir(debugFilePath), 0755)
+	
 	var debugInfo strings.Builder
 	debugInfo.WriteString(fmt.Sprintf("时间: %s\n", time.Now().Format("2006-01-02 15:04:05")))
 	debugInfo.WriteString(fmt.Sprintf("可执行文件目录: %s\n", exeDir))
+	debugInfo.WriteString(fmt.Sprintf("用户目录: %s\n", userHome))
 	debugInfo.WriteString(fmt.Sprintf("检查的路径:\n"))
 
 	// 按优先级检查路径
