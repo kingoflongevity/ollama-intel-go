@@ -2530,16 +2530,18 @@ func (a *App) setOllamaPath() {
 	}
 
 	// 按优先级检查路径
-	for _, path := range possiblePaths {
+	for i, path := range possiblePaths {
 		absPath, _ := filepath.Abs(path)
-		log.Printf("setOllamaPath: 检查路径: %s\n", absPath)
+		log.Printf("setOllamaPath: 检查路径[%d]: %s\n", i, absPath)
 		if _, err := os.Stat(absPath); err == nil {
 			a.ollamaPath = absPath
 			log.Printf("setOllamaPath: 找到Ollama: %s\n", a.ollamaPath)
 			// 写入调试文件
-			debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s\n", exeDir, a.ollamaPath)
+			debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s\n检查的路径: %v\n", exeDir, a.ollamaPath, possiblePaths)
 			os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
 			return
+		} else {
+			log.Printf("setOllamaPath: 路径不存在[%d]: %s, 错误: %v\n", i, absPath, err)
 		}
 	}
 
@@ -2548,7 +2550,7 @@ func (a *App) setOllamaPath() {
 	a.ollamaPath = "ollama"
 
 	// 写入调试文件
-	debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s (系统PATH)\n", exeDir, a.ollamaPath)
+	debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s (系统PATH)\n检查的路径: %v\n", exeDir, a.ollamaPath, possiblePaths)
 	os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
 }
 
