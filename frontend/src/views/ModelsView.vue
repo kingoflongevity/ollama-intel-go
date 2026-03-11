@@ -60,7 +60,7 @@
             </div>
             <div class="model-info">
               <h4 class="model-name">{{ model.name }}</h4>
-              <span class="model-id">ID: {{ getModelId(model.name) }}</span>
+              <span class="model-id">ID: {{ getModelId(model.digest) }}</span>
               <span class="model-size">{{ model.size }}</span>
             </div>
           </div>
@@ -271,13 +271,9 @@ const formatDate = (dateString) => {
   return date.toLocaleString('zh-CN')
 }
 
-const getModelId = (modelName) => {
-  if (!modelName) return '-'
-  const parts = modelName.split(':')
-  if (parts.length === 2) {
-    return parts[1]
-  }
-  return '-'
+const getModelId = (digest) => {
+  if (!digest) return '-'
+  return digest.substring(0, 12)
 }
 
 const getModelFamilies = (families) => {

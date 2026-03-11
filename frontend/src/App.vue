@@ -209,6 +209,7 @@ onMounted(() => {
   background: rgba(15, 15, 25, 0.6);
   border-right: 1px solid rgba(6, 182, 212, 0.15);
   position: relative;
+  z-index: 10;
 }
 
 .tech-sidebar::after {

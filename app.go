@@ -2447,7 +2447,10 @@ func (a *App) initHTTPServer() {
 		http.HandleFunc("/ws/chat", a.WebSocketHandler)
 
 		// 启动服务器，使用不同的端口以避免与Ollama服务冲突
+		log.Println("========================================")
 		log.Println("WebSocket服务器启动在 :11435")
+		log.Println("Web端访问地址: http://localhost:11435")
+		log.Println("========================================")
 		if err := http.ListenAndServe(":11435", nil); err != nil {
 			log.Printf("WebSocket服务器启动失败: %v", err)
 		}
