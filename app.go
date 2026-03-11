@@ -2538,29 +2538,46 @@ func (a *App) setOllamaPath() {
 		possiblePaths = append(possiblePaths, filepath.Join(".", "ollama-bin", "ollama"))
 	}
 
+	// 调试文件路径（写入到可执行文件所在目录）
+	debugFilePath := filepath.Join(exeDir, "ollama_path_debug.txt")
+	var debugInfo strings.Builder
+	debugInfo.WriteString(fmt.Sprintf("时间: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	debugInfo.WriteString(fmt.Sprintf("可执行文件目录: %s\n", exeDir))
+	debugInfo.WriteString(fmt.Sprintf("检查的路径:\n"))
+
 	// 按优先级检查路径
 	for i, path := range possiblePaths {
 		absPath, _ := filepath.Abs(path)
 		log.Printf("setOllamaPath: 检查路径[%d]: %s\n", i, absPath)
+		debugInfo.WriteString(fmt.Sprintf("  [%d]: %s\n", i, absPath))
 		if _, err := os.Stat(absPath); err == nil {
 			a.ollamaPath = absPath
 			log.Printf("setOllamaPath: 找到Ollama: %s\n", a.ollamaPath)
+			debugInfo.WriteString(fmt.Sprintf("\n结果: 找到Ollama: %s\n", a.ollamaPath))
 			// 写入调试文件
-			debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s\n检查的路径: %v\n", exeDir, a.ollamaPath, possiblePaths)
-			os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
+			if err := os.WriteFile(debugFilePath, []byte(debugInfo.String()), 0644); err != nil {
+				log.Printf("setOllamaPath: 写入调试文件失败: %v\n", err)
+			} else {
+				log.Printf("setOllamaPath: 调试文件已写入: %s\n", debugFilePath)
+			}
 			return
 		} else {
 			log.Printf("setOllamaPath: 路径不存在[%d]: %s, 错误: %v\n", i, absPath, err)
+			debugInfo.WriteString(fmt.Sprintf("    状态: 不存在 (%v)\n", err))
 		}
 	}
 
 	// 如果都不存在，回退到系统PATH中的ollama
 	log.Printf("setOllamaPath: 所有路径都不存在，回退到系统 PATH 中的 ollama\n")
 	a.ollamaPath = "ollama"
+	debugInfo.WriteString(fmt.Sprintf("\n结果: 回退到系统PATH中的ollama\n"))
 
 	// 写入调试文件
-	debugInfo := fmt.Sprintf("可执行文件目录: %s\nOllama 路径: %s (系统PATH)\n检查的路径: %v\n", exeDir, a.ollamaPath, possiblePaths)
-	os.WriteFile("ollama_path_debug.txt", []byte(debugInfo), 0644)
+	if err := os.WriteFile(debugFilePath, []byte(debugInfo.String()), 0644); err != nil {
+		log.Printf("setOllamaPath: 写入调试文件失败: %v\n", err)
+	} else {
+		log.Printf("setOllamaPath: 调试文件已写入: %s\n", debugFilePath)
+	}
 }
 
 // startOllamaService 启动 Ollama 服务

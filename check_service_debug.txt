@@ -1,4 +1,3 @@
-时间: 2026-03-11 18:55:00
+时间: 2026-03-11 23:48:08
 URL: http://127.0.0.1:11434/api/tags
-错误: <nil>
-状态码: 200
+错误: Get "http://127.0.0.1:11434/api/tags": dial tcp 127.0.0.1:11434: connectex: No connection could be made because the target machine actively refused it.
