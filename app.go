@@ -817,6 +817,10 @@ func (a *App) sendPullProgressEvent(modelName, status string, progress float64, 
 // readOutputLines 读取输出行并解析进度
 func (a *App) readOutputLines(reader io.Reader, modelName, streamType string, errorOccurred chan bool) {
 	scanner := bufio.NewScanner(reader)
+	// 增加缓冲区大小
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+	
 	for scanner.Scan() {
 		line := scanner.Text()
 		log.Printf("模型拉取输出[%s]: %s", streamType, line)
@@ -836,10 +840,15 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string, er
 
 		// 解析进度信息
 		progress, message := a.parsePullProgress(line)
+		
+		log.Printf("解析进度: progress=%.2f, message=%s", progress, message)
 
-		// 发送进度事件
+		// 发送进度事件（即使progress为-1也发送状态消息）
 		if progress >= 0 {
 			a.sendPullProgressEvent(modelName, "downloading", progress, message)
+		} else if message != "" {
+			// 发送状态更新（不带进度）
+			a.sendPullProgressEvent(modelName, "status", -1, message)
 		}
 	}
 
@@ -899,23 +908,39 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 
 	// 尝试解析 JSON 格式的进度信息
 	var jsonProgress struct {
-		Status    string  `json:"status"`
-		Completed int64   `json:"completed,omitempty"`
-		Total     int64   `json:"total,omitempty"`
-		Percent   float64 `json:"percent,omitempty"`
-		Digest    string  `json:"digest,omitempty"`
+		Status     string  `json:"status"`
+		Completed  int64   `json:"completed,omitempty"`
+		Total      int64   `json:"total,omitempty"`
+		Percent    float64 `json:"percent,omitempty"`
+		Digest     string  `json:"digest,omitempty"`
+		TotalSize  int64   `json:"total_size,omitempty"`
+		Downloaded int64   `json:"downloaded,omitempty"`
 	}
 
 	if err := json.Unmarshal([]byte(line), &jsonProgress); err == nil {
-		// JSON 格式
+		log.Printf("JSON解析成功: status=%s, completed=%d, total=%d, percent=%.2f", 
+			jsonProgress.Status, jsonProgress.Completed, jsonProgress.Total, jsonProgress.Percent)
+		
+		// JSON 格式 - 优先使用 percent 字段
 		if jsonProgress.Percent > 0 {
 			return jsonProgress.Percent, jsonProgress.Status
 		}
+		
+		// 使用 completed/total 计算进度
 		if jsonProgress.Total > 0 && jsonProgress.Completed >= 0 {
 			percent := float64(jsonProgress.Completed) / float64(jsonProgress.Total) * 100
 			return percent, fmt.Sprintf("%s (%s / %s)", jsonProgress.Status,
 				formatBytes(jsonProgress.Completed), formatBytes(jsonProgress.Total))
 		}
+		
+		// 使用 downloaded/total_size 计算进度
+		if jsonProgress.TotalSize > 0 && jsonProgress.Downloaded >= 0 {
+			percent := float64(jsonProgress.Downloaded) / float64(jsonProgress.TotalSize) * 100
+			return percent, fmt.Sprintf("%s (%s / %s)", jsonProgress.Status,
+				formatBytes(jsonProgress.Downloaded), formatBytes(jsonProgress.TotalSize))
+		}
+		
+		// 只有状态信息
 		if jsonProgress.Status != "" {
 			return -1, jsonProgress.Status
 		}
@@ -932,6 +957,30 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 				}
 			}
 		}
+	}
+
+	// 尝试解析 "downloading" 或 "pulling" 状态
+	lineLower := strings.ToLower(line)
+	if strings.Contains(lineLower, "downloading") || strings.Contains(lineLower, "pulling") {
+		// 尝试提取已下载/总大小 格式 (如 "downloading: 1.2 GB / 4.7 GB")
+		if strings.Contains(line, "/") {
+			parts := strings.Split(line, "/")
+			if len(parts) == 2 {
+				// 尝试解析大小
+				return -1, line // 返回状态，但进度未知
+			}
+		}
+		return -1, line
+	}
+
+	// 检查成功状态
+	if strings.Contains(lineLower, "success") || strings.Contains(lineLower, "complete") {
+		return 100, line
+	}
+
+	// 检查验证状态
+	if strings.Contains(lineLower, "verifying") || strings.Contains(lineLower, "extracting") {
+		return 99, line // 接近完成
 	}
 
 	return -1, line

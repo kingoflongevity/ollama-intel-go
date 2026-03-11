@@ -298,13 +298,15 @@ const resetPullState = () => {
 
 const setupPullProgressListener = () => {
   EventsOn('model_pull_progress', (eventData) => {
+    console.log('收到进度事件:', eventData)
     const { model, status, progress, message, time } = eventData
     
     if (model !== currentPullModel.value) {
       return
     }
     
-    if (progress >= 0) {
+    // 更新进度（只有当 progress >= 0 时才更新）
+    if (progress !== undefined && progress !== null && progress >= 0) {
       pullProgress.value = Math.round(progress)
     }
     
@@ -312,26 +314,35 @@ const setupPullProgressListener = () => {
       case 'started':
         pullStatus.value = ''
         pullStatusText.value = '开始拉取'
-        pullCurrentTask.value = message
+        pullCurrentTask.value = message || '正在初始化...'
         break
       case 'downloading':
         pullStatus.value = ''
         pullStatusText.value = '下载中'
-        pullCurrentTask.value = message
+        pullCurrentTask.value = message || '正在下载...'
+        break
+      case 'status':
+        // 状态更新，不改变进度
+        pullCurrentTask.value = message || '处理中...'
         break
       case 'completed':
         pullStatus.value = 'success'
         pullStatusText.value = '拉取完成'
-        pullCurrentTask.value = message
+        pullCurrentTask.value = message || '模型拉取完成'
         pullProgress.value = 100
         loadModelsWithRetry()
         break
       case 'error':
         pullStatus.value = 'exception'
         pullStatusText.value = '拉取失败'
-        pullCurrentTask.value = message
+        pullCurrentTask.value = message || '拉取失败'
         pullError.value = message
         break
+      default:
+        // 未知状态，显示消息
+        if (message) {
+          pullCurrentTask.value = message
+        }
     }
   })
 }
