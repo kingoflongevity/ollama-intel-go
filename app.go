@@ -135,25 +135,26 @@ func (a *App) startup(ctx context.Context) {
 	// 保存原始的 stdout，以便同时输出到控制台
 	originalStdout := os.Stdout
 
-	// 创建一个 MultiWriter，同时写入控制台和管道
-	// 使用 io.MultiWriter 实现直接输出，无需逐行扫描
+	// 创建管道用于捕获输出
 	r, w, _ := os.Pipe()
-	multiWriter := io.MultiWriter(originalStdout, w)
-	os.Stdout = multiWriter
-	os.Stderr = multiWriter
+	os.Stdout = w
+	os.Stderr = w
 
-	// 启动一个 goroutine 来读取管道内容并发送到前端
+	// 启动一个 goroutine 来读取管道内容并发送到前端和控制台
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := r.Read(buf)
 			if n > 0 {
-				// 直接发送到前端
-				wailsRuntime.EventsEmit(ctx, "log", string(buf[:n]))
+				data := buf[:n]
+				// 同时输出到控制台
+				originalStdout.Write(data)
+				// 发送到前端
+				wailsRuntime.EventsEmit(ctx, "log", string(data))
 			}
 			if err != nil {
 				if err != io.EOF {
-					log.Printf("日志读取错误: %v", err)
+					originalStdout.Write([]byte(fmt.Sprintf("日志读取错误: %v\n", err)))
 				}
 				break
 			}
