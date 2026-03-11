@@ -135,26 +135,28 @@ func (a *App) startup(ctx context.Context) {
 	// 保存原始的 stdout，以便同时输出到控制台
 	originalStdout := os.Stdout
 
-	// 重定向 os.Stdout 和 os.Stderr 到日志写入器
-	// 这样可以捕获 GIN 框架和其他库的输出
+	// 创建一个 MultiWriter，同时写入控制台和管道
+	// 使用 io.MultiWriter 实现直接输出，无需逐行扫描
 	r, w, _ := os.Pipe()
-	os.Stdout = w
-	os.Stderr = w
+	multiWriter := io.MultiWriter(originalStdout, w)
+	os.Stdout = multiWriter
+	os.Stderr = multiWriter
 
-	// 启动一个 goroutine 来读取管道内容并发送到前端和控制台
+	// 启动一个 goroutine 来读取管道内容并发送到前端
 	go func() {
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line != "" {
-				// 同时输出到控制台
-				fmt.Fprintln(originalStdout, line)
-				// 发送到前端
-				wailsRuntime.EventsEmit(ctx, "log", line+"\n")
+		buf := make([]byte, 4096)
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				// 直接发送到前端
+				wailsRuntime.EventsEmit(ctx, "log", string(buf[:n]))
 			}
-		}
-		if err := scanner.Err(); err != nil {
-			log.Printf("日志读取错误: %v", err)
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("日志读取错误: %v", err)
+				}
+				break
+			}
 		}
 	}()
 
@@ -2491,20 +2493,25 @@ func (a *App) initHTTPServer() {
 		// 注册WebSocket路由
 		http.HandleFunc("/ws/chat", a.WebSocketHandler)
 
+		// 注册OpenAI兼容API路由
+		http.HandleFunc("/v1/chat/completions", a.handleOpenAIChatCompletions)
+		http.HandleFunc("/v1/models", a.handleOpenAIModels)
+		http.HandleFunc("/v1/models/", a.handleOpenAIModel)
+
 		// 启动服务器，使用不同的端口以避免与Ollama服务冲突
 		log.Println("========================================")
 		log.Println("WebSocket服务器启动在 :11435")
 		log.Println("Web端访问地址: http://localhost:11435")
+		log.Println("OpenAI兼容API地址: http://localhost:11435/v1")
 		log.Println("========================================")
 		if err := http.ListenAndServe(":11435", nil); err != nil {
 			log.Printf("WebSocket服务器启动失败: %v", err)
 		}
 	}()
 
-	// 注意: Ollama 服务本身已内置 OpenAI 兼容 API (端口 11434)
-	// 不需要启动额外的 OpenAI 兼容 API 服务器
+	// 注意: Ollama 服务本身也内置 OpenAI 兼容 API (端口 11434)
 	// OpenAI 兼容 API 地址: http://localhost:11434/v1
-	log.Println("OpenAI兼容API由Ollama服务提供，地址: http://localhost:11434/v1")
+	log.Println("Ollama内置OpenAI兼容API地址: http://localhost:11434/v1")
 }
 
 // OpenAIChatRequest OpenAI兼容的聊天请求
@@ -2564,29 +2571,6 @@ type OpenAIModelResponse struct {
 type OpenAIModelsResponse struct {
 	Object string                `json:"object"`
 	Data   []OpenAIModelResponse `json:"data"`
-}
-
-// initOpenAIServer 初始化OpenAI兼容API服务器
-func (a *App) initOpenAIServer() {
-	// 获取OpenAI兼容API端口配置
-	port := 8080
-	if portVal, ok := a.environmentVariables["OLLAMA_OPENAI_PORT"]; ok {
-		if p, ok := portVal.(float64); ok {
-			port = int(p)
-		}
-	}
-
-	// 注册OpenAI兼容API路由
-	http.HandleFunc("/v1/chat/completions", a.handleOpenAIChatCompletions)
-	http.HandleFunc("/v1/models", a.handleOpenAIModels)
-	http.HandleFunc("/v1/models/", a.handleOpenAIModel)
-
-	// 启动服务器
-	serverAddr := fmt.Sprintf(":%d", port)
-	log.Printf("OpenAI兼容API服务器启动在 %s", serverAddr)
-	if err := http.ListenAndServe(serverAddr, nil); err != nil {
-		log.Printf("OpenAI兼容API服务器启动失败: %v", err)
-	}
 }
 
 // handleOpenAIChatCompletions 处理OpenAI兼容的聊天完成请求
