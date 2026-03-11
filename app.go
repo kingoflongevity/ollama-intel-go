@@ -1356,16 +1356,32 @@ func (a *App) ChatStream(req ChatStreamRequest) *ChatStreamResult {
 
 // StartService 启动服务
 func (a *App) StartService() map[string]interface{} {
-	// 在 goroutine 中启动服务以避免阻塞
-	go func() {
-		if err := a.startOllamaService(); err != nil {
-			log.Printf("服务启动失败: %v", err)
-			// 这里可以添加错误通知机制，例如通过事件发送到前端
+	log.Printf("StartService: 开始启动服务, Ollama路径: %s\n", a.ollamaPath)
+
+	// 检查Ollama路径是否存在
+	if a.ollamaPath != "ollama" {
+		if _, err := os.Stat(a.ollamaPath); os.IsNotExist(err) {
+			log.Printf("StartService: Ollama文件不存在: %s\n", a.ollamaPath)
+			return map[string]interface{}{
+				"message":  fmt.Sprintf("Ollama文件不存在: %s", a.ollamaPath),
+				"success": false,
+				"error":  err.Error(),
+			}
 		}
-	}()
+	}
+
+	// 启动服务
+	if err := a.startOllamaService(); err != nil {
+		log.Printf("StartService: 服务启动失败: %v\n", err)
+		return map[string]interface{}{
+			"message":  fmt.Sprintf("服务启动失败: %v", err),
+			"success": false,
+			"error":  err.Error(),
+		}
+	}
 
 	return map[string]interface{}{
-		"message": "服务启动中...",
+		"message": "服务启动成功",
 		"success": true,
 	}
 }
@@ -2540,8 +2556,19 @@ func (a *App) setOllamaPath() {
 
 // startOllamaService 启动 Ollama 服务
 func (a *App) startOllamaService() error {
+	log.Printf("startOllamaService: 开始启动服务, Ollama路径: %s\n", a.ollamaPath)
+	
+	// 检查Ollama路径是否存在
+	if a.ollamaPath != "ollama" {
+		if _, err := os.Stat(a.ollamaPath); os.IsNotExist(err) {
+			log.Printf("startOllamaService: Ollama文件不存在: %s\n", a.ollamaPath)
+			return fmt.Errorf("Ollama文件不存在: %s", a.ollamaPath)
+		}
+	}
+	
 	// 检查端口是否被占用
 	if a.checkPortInUse(11434) {
+		log.Println("startOllamaService: 端口11434已被占用")
 		// 尝试清理占用端口的进程
 		if !a.killProcessOnPort(11434) {
 			return fmt.Errorf("端口 11434 被占用，请手动关闭相关进程")
@@ -2557,6 +2584,7 @@ func (a *App) startOllamaService() error {
 	}
 
 	// 启动新的 Ollama 服务进程
+	log.Printf("startOllamaService: 执行命令: %s serve\n", a.ollamaPath)
 	cmd := exec.Command(a.ollamaPath, "serve")
 
 	// 在 Windows 上隐藏命令窗口
