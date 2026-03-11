@@ -576,7 +576,8 @@ const loadCurrentOllamaPath = async () => {
 }
 
 const openaiApiUrl = computed(() => {
-  return `http://localhost:11434/v1`
+  const host = configStore.config.value.ollamaHost || '127.0.0.1:11434'
+  return `http://${host}/v1`
 })
 
 const copyApiUrl = async () => {

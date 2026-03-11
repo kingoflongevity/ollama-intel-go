@@ -380,13 +380,20 @@ func (a *App) ListModels() []ModelInfo {
 		for _, m := range modelsList {
 			if modelMap, ok := m.(map[string]interface{}); ok {
 				log.Printf("ListModels: 模型信息: %+v", modelMap)
+
+				// 解析 details 字段
+				details := make(map[string]interface{})
+				if detailsMap, ok := modelMap["details"].(map[string]interface{}); ok {
+					details = detailsMap
+				}
+
 				model := ModelInfo{
 					Name:     getString(modelMap, "name"),
 					Model:    getString(modelMap, "model"),
 					Size:     getSizeString(modelMap, "size"),
 					Digest:   getString(modelMap, "digest"),
 					Modified: getString(modelMap, "modified_at"),
-					Details:  make(map[string]interface{}),
+					Details:  details,
 				}
 				models = append(models, model)
 			}
@@ -509,83 +516,83 @@ func (a *App) PullModel(name string) map[string]interface{} {
 // normalizeModelName 规范化模型名称，确保包含tag
 func (a *App) normalizeModelName(name string) string {
 	name = strings.TrimSpace(name)
-	
+
 	// 如果模型名称已经包含tag（包含冒号），直接返回
 	if strings.Contains(name, ":") {
 		return name
 	}
-	
+
 	// 常见的模型名称映射（纠正拼写错误）
 	modelNameCorrections := map[string]string{
-		"llama4":     "llama3.3",
-		"llama3.3":   "llama3.3",
-		"llama3.2":   "llama3.2",
-		"llama3.1":   "llama3.1",
-		"llama3":     "llama3",
-		"llama2":     "llama2",
-		"gemma3":     "gemma3",
-		"gemma2":     "gemma2",
-		"gemma":      "gemma",
-		"mistral":    "mistral",
-		"mixtral":    "mixtral",
-		"qwen3.5":    "qwen3.5",
-		"qwen3":      "qwen3",
-		"qwen2.5":    "qwen2.5",
-		"qwen2":      "qwen2",
-		"phi4":       "phi4",
-		"phi3":       "phi3",
-		"phi-3":      "phi3",
-		"codellama":  "codellama",
-		"code-llama": "codellama",
+		"llama4":         "llama3.3",
+		"llama3.3":       "llama3.3",
+		"llama3.2":       "llama3.2",
+		"llama3.1":       "llama3.1",
+		"llama3":         "llama3",
+		"llama2":         "llama2",
+		"gemma3":         "gemma3",
+		"gemma2":         "gemma2",
+		"gemma":          "gemma",
+		"mistral":        "mistral",
+		"mixtral":        "mixtral",
+		"qwen3.5":        "qwen3.5",
+		"qwen3":          "qwen3",
+		"qwen2.5":        "qwen2.5",
+		"qwen2":          "qwen2",
+		"phi4":           "phi4",
+		"phi3":           "phi3",
+		"phi-3":          "phi3",
+		"codellama":      "codellama",
+		"code-llama":     "codellama",
 		"deepseek-coder": "deepseek-coder",
-		"deepseek":   "deepseek-r1",
-		"deepseek-r1": "deepseek-r1",
-		"deepseek-v3": "deepseek-v3",
-		"llava":      "llava",
-		"starling-lm": "starling-lm",
-		"command-r":  "command-r",
-		"cohere":     "command-r",
+		"deepseek":       "deepseek-r1",
+		"deepseek-r1":    "deepseek-r1",
+		"deepseek-v3":    "deepseek-v3",
+		"llava":          "llava",
+		"starling-lm":    "starling-lm",
+		"command-r":      "command-r",
+		"cohere":         "command-r",
 	}
-	
+
 	// 检查是否需要纠正模型名称
 	lowerName := strings.ToLower(name)
 	if corrected, ok := modelNameCorrections[lowerName]; ok {
 		name = corrected
 	}
-	
+
 	// 对于常见的模型，添加默认tag
 	defaultTags := map[string]string{
-		"llama3.3":     "latest",
-		"llama3.2":     "latest",
-		"llama3.1":     "latest",
-		"llama3":       "latest",
-		"llama2":       "latest",
-		"gemma3":       "latest",
-		"gemma2":       "latest",
-		"gemma":        "latest",
-		"mistral":      "latest",
-		"mixtral":      "latest",
-		"qwen3.5":      "latest",
-		"qwen3":        "latest",
-		"qwen2.5":      "latest",
-		"qwen2":        "latest",
-		"phi4":         "latest",
-		"phi3":         "latest",
-		"codellama":    "latest",
+		"llama3.3":       "latest",
+		"llama3.2":       "latest",
+		"llama3.1":       "latest",
+		"llama3":         "latest",
+		"llama2":         "latest",
+		"gemma3":         "latest",
+		"gemma2":         "latest",
+		"gemma":          "latest",
+		"mistral":        "latest",
+		"mixtral":        "latest",
+		"qwen3.5":        "latest",
+		"qwen3":          "latest",
+		"qwen2.5":        "latest",
+		"qwen2":          "latest",
+		"phi4":           "latest",
+		"phi3":           "latest",
+		"codellama":      "latest",
 		"deepseek-coder": "latest",
-		"deepseek-r1":  "latest",
-		"deepseek-v3":  "latest",
-		"llava":        "latest",
-		"starling-lm":  "latest",
-		"command-r":    "latest",
+		"deepseek-r1":    "latest",
+		"deepseek-v3":    "latest",
+		"llava":          "latest",
+		"starling-lm":    "latest",
+		"command-r":      "latest",
 	}
-	
+
 	// 检查是否有预定义的默认tag
 	lowerName = strings.ToLower(name)
 	if tag, ok := defaultTags[lowerName]; ok {
 		return fmt.Sprintf("%s:%s", name, tag)
 	}
-	
+
 	// 默认添加:latest tag
 	return fmt.Sprintf("%s:latest", name)
 }
@@ -599,7 +606,7 @@ func (a *App) pullModelWithProgress(modelName string) {
 
 	// 构建环境变量
 	env := os.Environ()
-	
+
 	// 添加用户配置的环境变量（会覆盖系统变量）
 	for key, value := range a.environmentVariables {
 		// 跳过空值
@@ -682,14 +689,14 @@ func (a *App) pullModelWithProgress(modelName string) {
 
 	// 使用通道来跟踪错误状态
 	errorOccurred := make(chan bool, 1)
-	
+
 	// 合并 stdout 和 stderr 的读取
 	go a.readOutputLines(stdout, modelName, "stdout", errorOccurred)
 	go a.readOutputLines(stderr, modelName, "stderr", errorOccurred)
 
 	// 等待命令完成
 	err = cmd.Wait()
-	
+
 	// 检查是否有错误发生
 	select {
 	case <-errorOccurred:
@@ -775,7 +782,7 @@ func (a *App) readOutputLines(reader io.Reader, modelName, streamType string, er
 // parsePullError 解析拉取错误信息，返回用户友好的错误消息
 func (a *App) parsePullError(line string) string {
 	lineLower := strings.ToLower(line)
-	
+
 	// 检测各种错误类型
 	if strings.Contains(line, "412") || strings.Contains(lineLower, "precondition failed") {
 		return "模型拉取失败 (412): 可能原因：1) 模型名称拼写错误；2) 网络连接问题；3) Ollama服务版本过旧。建议：检查模型名称、更新Ollama版本、或尝试使用镜像源(在设置中配置OLLAMA_MODEL_SOURCE=modelscope)"
@@ -805,7 +812,7 @@ func (a *App) parsePullError(line string) string {
 		}
 		return line
 	}
-	
+
 	return ""
 }
 
@@ -2855,10 +2862,10 @@ func (a *App) GetRealTimeStats() map[string]interface{} {
 							freeGB := float64(freeKB) / 1024 / 1024
 							usedGB := totalGB - freeGB
 							stats["memory"] = map[string]interface{}{
-								"total_gb":      totalGB,
-								"used_gb":       usedGB,
-								"free_gb":       freeGB,
-								"used_percent":  (usedGB / totalGB) * 100,
+								"total_gb":     totalGB,
+								"used_gb":      usedGB,
+								"free_gb":      freeGB,
+								"used_percent": (usedGB / totalGB) * 100,
 							}
 						}
 					}

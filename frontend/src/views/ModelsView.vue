@@ -210,6 +210,14 @@
             <span class="info-value">{{ selectedModel.details?.format || '-' }}</span>
           </div>
           <div class="info-item">
+            <span class="info-label">模型家族</span>
+            <span class="info-value">{{ getModelFamilies(selectedModel.details?.families) }}</span>
+          </div>
+          <div class="info-item full-width">
+            <span class="info-label">摘要 (Digest)</span>
+            <span class="info-value digest">{{ selectedModel.digest || '-' }}</span>
+          </div>
+          <div class="info-item">
             <span class="info-label">修改时间</span>
             <span class="info-value">{{ formatDate(selectedModel.modified_at) }}</span>
           </div>
@@ -260,6 +268,11 @@ const formatDate = (dateString) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleString('zh-CN')
+}
+
+const getModelFamilies = (families) => {
+  if (!families || !Array.isArray(families)) return '-'
+  return families.join(', ')
 }
 
 const cancelPull = () => {
@@ -999,6 +1012,12 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.info-item.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
 .info-item .info-label {
   font-size: 13px;
   color: #64748b;
@@ -1008,6 +1027,17 @@ onMounted(() => {
   font-size: 13px;
   color: #e2e8f0;
   font-weight: 500;
+}
+
+.info-item .info-value.digest {
+  font-family: monospace;
+  font-size: 11px;
+  color: #94a3b8;
+  word-break: break-all;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 6px 10px;
+  border-radius: 4px;
+  width: 100%;
 }
 
 .is-loading {
