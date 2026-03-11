@@ -10,6 +10,10 @@ export function ChatCompletion(arg1) {
   return window['go']['main']['App']['ChatCompletion'](arg1);
 }
 
+export function ChatStream(arg1) {
+  return window['go']['main']['App']['ChatStream'](arg1);
+}
+
 export function CheckOllamaAvailable() {
   return window['go']['main']['App']['CheckOllamaAvailable']();
 }

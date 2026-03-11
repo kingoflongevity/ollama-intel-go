@@ -162,7 +162,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { User, ChatDotRound, Promotion, Search, Operation, Delete, Document, Reading, Edit } from '@element-plus/icons-vue'
-import { ListModels } from '../../wailsjs/go/main/App'
+import { ListModels, ChatStream } from '../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { useSessionStore } from '@/stores/sessionStore'
 import { useConfigStore } from '@/stores/configStore'
@@ -340,7 +340,6 @@ const sendMessage = async () => {
   messages.value.push(userMessage)
   saveMessages()
   
-  const msg = inputMessage.value
   inputMessage.value = ''
   isLoading.value = true
 
@@ -356,14 +355,53 @@ const sendMessage = async () => {
   sessionStore.updateSession(sessionId, { model: selectedModel.value })
 
   try {
-    await sendMessageWithHTTP()
+    // 通过后端代理调用Ollama API，避免跨域问题
+    const request = {
+      model: selectedModel.value,
+      messages: messages.value.filter(m => m.role !== 'assistant').map(m => ({
+        role: m.role,
+        content: m.content
+      })),
+      stream: true
+    }
+    
+    console.log('发送聊天请求:', request.model, '消息数:', request.messages.length)
+    
+    const results = await ChatStream(request)
+    
+    console.log('收到聊天结果:', results.length, '条')
+    
+    if (results && results.length > 0) {
+      const lastResult = results[results.length - 1]
+      
+      if (lastResult.error) {
+        messages.value[currentStreamMessageIndex.value] = {
+          role: 'assistant',
+          content: `错误: ${lastResult.error}`,
+          timestamp: new Date().toLocaleTimeString()
+        }
+      } else {
+        // 使用最后一个结果的内容
+        messages.value[currentStreamMessageIndex.value] = {
+          role: 'assistant',
+          content: lastResult.content || '',
+          timestamp: new Date().toLocaleTimeString()
+        }
+      }
+      saveMessages()
+    } else {
+      messages.value[currentStreamMessageIndex.value] = {
+        role: 'assistant',
+        content: '抱歉，未收到响应。请检查Ollama服务是否正常运行。',
+        timestamp: new Date().toLocaleTimeString()
+      }
+      saveMessages()
+    }
   } catch (error) {
     console.error('发送消息失败:', error)
     let errorMessage = '抱歉，连接AI服务时出现错误，请稍后重试。'
     
-    if (error.name === 'AbortError') {
-      errorMessage = '请求超时，请检查网络连接或模型是否正确加载。'
-    } else if (error.message) {
+    if (error.message) {
       errorMessage = `错误: ${error.message}`
     }
     
@@ -378,92 +416,6 @@ const sendMessage = async () => {
   } finally {
     isLoading.value = false
     currentStreamMessageIndex.value = -1
-  }
-}
-
-const sendMessageWithHTTP = async () => {
-  try {
-    const request = {
-      model: selectedModel.value,
-      messages: messages.value.filter(m => m.role !== 'assistant').map(m => ({
-        role: m.role,
-        content: m.content
-      })),
-      stream: true
-    }
-
-    const apiUrl = configStore.getOllamaApiUrl()
-    console.log('正在连接Ollama API:', apiUrl)
-    console.log('请求模型:', selectedModel.value)
-    console.log('请求消息数:', request.messages.length)
-    
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => {
-      controller.abort()
-      console.error('请求超时，已取消')
-    }, 120000)
-
-    const response = await fetch(`${apiUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-      signal: controller.signal
-    })
-
-    clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('HTTP请求失败:', response.status, errorText)
-      throw new Error(`HTTP请求失败: ${response.status}`)
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let fullContent = ''
-    let lastUpdateTime = Date.now()
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      const chunk = decoder.decode(value, { stream: true })
-      const lines = chunk.split('\n')
-
-      for (const line of lines) {
-        if (line.trim() === '') continue
-        try {
-          const data = JSON.parse(line)
-          if (data.error) {
-            console.error('Ollama返回错误:', data.error)
-            throw new Error(data.error)
-          }
-          if (data.message && data.message.content) {
-            fullContent += data.message.content
-            lastUpdateTime = Date.now()
-            if (currentStreamMessageIndex.value >= 0 && currentStreamMessageIndex.value < messages.value.length) {
-              messages.value[currentStreamMessageIndex.value] = {
-                role: 'assistant',
-                content: fullContent,
-                timestamp: new Date().toLocaleTimeString()
-              }
-              saveMessages()
-            }
-          }
-          if (data.done) break
-        } catch (e) {
-          if (e.message && !e.message.includes('JSON')) {
-            throw e
-          }
-          console.error('解析流式响应失败:', e, '原始数据:', line)
-        }
-      }
-    }
-    
-    console.log('聊天完成，总长度:', fullContent.length)
-  } catch (error) {
-    console.error('HTTP API发送失败:', error)
-    throw error
   }
 }
 

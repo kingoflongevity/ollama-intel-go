@@ -1111,6 +1111,128 @@ func (a *App) ChatCompletion(req ChatRequest) ChatResponse {
 	return response
 }
 
+// ChatStreamRequest 聊天流式请求
+type ChatStreamRequest struct {
+	Model    string        `json:"model"`
+	Messages []ChatMessage `json:"messages"`
+	Stream   bool          `json:"stream"`
+}
+
+// ChatStreamResult 聊天流式结果
+type ChatStreamResult struct {
+	Content   string `json:"content"`
+	Done      bool   `json:"done"`
+	Error     string `json:"error,omitempty"`
+	Model     string `json:"model"`
+	TotalTime int64  `json:"total_time,omitempty"`
+}
+
+// ChatStream 聊天流式响应，通过后端代理调用Ollama API
+func (a *App) ChatStream(req ChatStreamRequest) []ChatStreamResult {
+	log.Printf("ChatStream: 模型=%s, 消息数=%d", req.Model, len(req.Messages))
+
+	var results []ChatStreamResult
+
+	// 使用 HTTP API 进行聊天
+	client := &http.Client{Timeout: 120 * time.Second}
+
+	// 构建请求体
+	reqBody, err := json.Marshal(map[string]interface{}{
+		"model":    req.Model,
+		"messages": req.Messages,
+		"stream":   true,
+	})
+	if err != nil {
+		results = append(results, ChatStreamResult{
+			Error: fmt.Sprintf("构建请求失败: %v", err),
+			Done:  true,
+		})
+		return results
+	}
+
+	// 发送请求
+	resp, err := client.Post("http://127.0.0.1:11434/api/chat", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		results = append(results, ChatStreamResult{
+			Error: fmt.Sprintf("连接Ollama服务失败: %v", err),
+			Done:  true,
+		})
+		return results
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		results = append(results, ChatStreamResult{
+			Error: fmt.Sprintf("Ollama返回错误: %d - %s", resp.StatusCode, string(body)),
+			Done:  true,
+		})
+		return results
+	}
+
+	// 处理流式响应
+	scanner := bufio.NewScanner(resp.Body)
+	var fullContent strings.Builder
+	startTime := time.Now()
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var chunk struct {
+			Model     string      `json:"model"`
+			Message   ChatMessage `json:"message"`
+			Done      bool        `json:"done"`
+			Error     string      `json:"error,omitempty"`
+			TotalTime int64       `json:"total_duration,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			log.Printf("解析响应失败: %v, 行: %s", err, line)
+			continue
+		}
+
+		if chunk.Error != "" {
+			results = append(results, ChatStreamResult{
+				Error: chunk.Error,
+				Done:  true,
+			})
+			return results
+		}
+
+		if chunk.Message.Content != "" {
+			fullContent.WriteString(chunk.Message.Content)
+			results = append(results, ChatStreamResult{
+				Content: fullContent.String(),
+				Done:    false,
+				Model:   chunk.Model,
+			})
+		}
+
+		if chunk.Done {
+			results = append(results, ChatStreamResult{
+				Content:   fullContent.String(),
+				Done:      true,
+				Model:     chunk.Model,
+				TotalTime: time.Since(startTime).Milliseconds(),
+			})
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		results = append(results, ChatStreamResult{
+			Error: fmt.Sprintf("读取响应失败: %v", err),
+			Done:  true,
+		})
+	}
+
+	log.Printf("ChatStream完成: 内容长度=%d, 结果数=%d", fullContent.Len(), len(results))
+	return results
+}
+
 // StartService 启动服务
 func (a *App) StartService() map[string]interface{} {
 	// 在 goroutine 中启动服务以避免阻塞
