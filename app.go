@@ -1164,8 +1164,8 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 	}
 
 	if err := json.Unmarshal([]byte(line), &jsonProgress); err == nil {
-		log.Printf("JSON解析成功: status=%s, completed=%d, total=%d, percent=%.2f", 
-			jsonProgress.Status, jsonProgress.Completed, jsonProgress.Total, jsonProgress.Percent)
+		log.Printf("JSON解析成功: status=%s, completed=%d, total=%d, percent=%.2f, total_size=%d, downloaded=%d", 
+			jsonProgress.Status, jsonProgress.Completed, jsonProgress.Total, jsonProgress.Percent, jsonProgress.TotalSize, jsonProgress.Downloaded)
 		
 		// JSON 格式 - 优先使用 percent 字段
 		if jsonProgress.Percent > 0 {
@@ -1173,15 +1173,17 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 		}
 		
 		// 使用 completed/total 计算进度
-		if jsonProgress.Total > 0 && jsonProgress.Completed >= 0 {
+		if jsonProgress.Total > 0 && jsonProgress.Completed > 0 {
 			percent := float64(jsonProgress.Completed) / float64(jsonProgress.Total) * 100
+			log.Printf("计算进度(completed/total): %.2f%%", percent)
 			return percent, fmt.Sprintf("%s (%s / %s)", jsonProgress.Status,
 				formatBytes(jsonProgress.Completed), formatBytes(jsonProgress.Total))
 		}
 		
 		// 使用 downloaded/total_size 计算进度
-		if jsonProgress.TotalSize > 0 && jsonProgress.Downloaded >= 0 {
+		if jsonProgress.TotalSize > 0 && jsonProgress.Downloaded > 0 {
 			percent := float64(jsonProgress.Downloaded) / float64(jsonProgress.TotalSize) * 100
+			log.Printf("计算进度(downloaded/total_size): %.2f%%", percent)
 			return percent, fmt.Sprintf("%s (%s / %s)", jsonProgress.Status,
 				formatBytes(jsonProgress.Downloaded), formatBytes(jsonProgress.TotalSize))
 		}
@@ -1190,6 +1192,8 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 		if jsonProgress.Status != "" {
 			return -1, jsonProgress.Status
 		}
+	} else {
+		log.Printf("JSON解析失败: %v, 原始行: %s", err, line)
 	}
 
 	// 尝试解析文本格式的百分比
@@ -1199,6 +1203,7 @@ func (a *App) parsePullProgress(line string) (float64, string) {
 			if strings.Contains(part, "%") {
 				percentStr := strings.Trim(part, "%")
 				if percent, err := strconv.ParseFloat(percentStr, 64); err == nil {
+					log.Printf("文本格式进度: %.2f%%", percent)
 					return percent, line
 				}
 			}
