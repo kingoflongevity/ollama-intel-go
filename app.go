@@ -52,14 +52,15 @@ var (
 
 // logWriter 是一个自定义的 io.Writer，将日志发送到前端
 type logWriter struct {
-	ctx           context.Context
-	mu            sync.Mutex
-	lastLogMsg    string
-	lastLogType   string
-	lastLogTime   time.Time
-	logBuffer     strings.Builder
-	bufferTimer   *time.Timer
-	bufferMutex   sync.Mutex
+	ctx             context.Context
+	mu              sync.Mutex
+	buffer          []string
+	bufferMutex     sync.Mutex
+	flushTimer      *time.Timer
+	flushInterval   time.Duration
+	maxBufferSize   int
+	lastProgressMsg string
+	progressCount   int
 }
 
 // 日志类型
@@ -88,14 +89,170 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 	// 判断日志类型
 	logType := l.getLogType(msg)
 
-	// 对于进度类型的日志，使用更新模式而不是追加模式
+	// 对于进度类型的日志，使用更新模式
 	if logType == LogTypeProgress {
-		l.emitLog(msg, logType, true)
+		l.handleProgressLog(msg)
 	} else {
-		l.emitLog(msg, logType, false)
+		// 普通日志添加到缓冲区
+		l.addToBuffer(msg)
 	}
 
 	return len(p), nil
+}
+
+// handleProgressLog 处理进度日志
+func (l *logWriter) handleProgressLog(msg string) {
+	// 检查是否是相似的进度消息
+	if l.isSimilarProgress(msg) {
+		l.lastProgressMsg = msg
+		l.progressCount++
+		// 每5次更新才发送一次
+		if l.progressCount%5 == 0 {
+			l.emitProgressUpdate(msg)
+		}
+		return
+	}
+	
+	// 新的进度消息，先刷新缓冲区
+	l.flushBuffer()
+	l.lastProgressMsg = msg
+	l.progressCount = 1
+	l.emitProgressUpdate(msg)
+}
+
+// isSimilarProgress 检查是否是相似的进度消息
+func (l *logWriter) isSimilarProgress(msg string) bool {
+	if l.lastProgressMsg == "" {
+		return false
+	}
+	
+	// 提取进度消息的关键部分（去掉百分比和数字）
+	getKey := func(s string) string {
+		key := percentRegex.ReplaceAllString(s, "")
+		key = regexp.MustCompile(`\d+(\.\d+)?\s*(GB|MB|KB|B)`).ReplaceAllString(key, "")
+		return strings.TrimSpace(key)
+	}
+	
+	return getKey(msg) == getKey(l.lastProgressMsg)
+}
+
+// emitProgressUpdate 发送进度更新
+func (l *logWriter) emitProgressUpdate(msg string) {
+	if l.ctx == nil {
+		return
+	}
+
+	logData := map[string]interface{}{
+		"message":   msg,
+		"type":      LogTypeProgress,
+		"timestamp": time.Now().Format("15:04:05"),
+		"isUpdate":  true,
+	}
+
+	wailsRuntime.EventsEmit(l.ctx, "log-progress", logData)
+}
+
+// addToBuffer 添加日志到缓冲区
+func (l *logWriter) addToBuffer(msg string) {
+	l.bufferMutex.Lock()
+	defer l.bufferMutex.Unlock()
+
+	l.buffer = append(l.buffer, msg)
+
+	// 如果缓冲区满了，立即刷新
+	if len(l.buffer) >= l.maxBufferSize {
+		go l.flushBuffer()
+	} else if l.flushTimer == nil {
+		// 启动定时器，延迟刷新
+		l.flushTimer = time.AfterFunc(l.flushInterval, l.flushBuffer)
+	}
+}
+
+// flushBuffer 刷新缓冲区
+func (l *logWriter) flushBuffer() {
+	l.bufferMutex.Lock()
+	defer l.bufferMutex.Unlock()
+
+	if len(l.buffer) == 0 {
+		return
+	}
+
+	// 合并日志
+	mergedLogs := l.mergeLogs(l.buffer)
+	
+	// 发送合并后的日志
+	if l.ctx != nil {
+		for _, logMsg := range mergedLogs {
+			wailsRuntime.EventsEmit(l.ctx, "log", logMsg)
+		}
+	}
+
+	// 清空缓冲区
+	l.buffer = nil
+
+	// 重置定时器
+	if l.flushTimer != nil {
+		l.flushTimer.Stop()
+		l.flushTimer = nil
+	}
+}
+
+// mergeLogs 合并相似的日志
+func (l *logWriter) mergeLogs(logs []string) []string {
+	if len(logs) == 0 {
+		return nil
+	}
+
+	var merged []string
+	var currentGroup []string
+	var currentPrefix string
+
+	for _, log := range logs {
+		prefix := l.getLogPrefix(log)
+		
+		if prefix != "" && prefix == currentPrefix && len(currentGroup) > 0 {
+			// 相同前缀的日志，添加到当前组
+			currentGroup = append(currentGroup, log)
+		} else {
+			// 不同前缀，先处理之前的组
+			if len(currentGroup) > 0 {
+				merged = append(merged, l.mergeGroup(currentGroup)...)
+			}
+			currentGroup = []string{log}
+			currentPrefix = prefix
+		}
+	}
+
+	// 处理最后一组
+	if len(currentGroup) > 0 {
+		merged = append(merged, l.mergeGroup(currentGroup)...)
+	}
+
+	return merged
+}
+
+// getLogPrefix 获取日志前缀（用于分组）
+func (l *logWriter) getLogPrefix(log string) string {
+	// 提取日志前缀，如 "startup:", "setOllamaPath:", "checkOllamaService:" 等
+	parts := strings.SplitN(log, ":", 2)
+	if len(parts) > 0 {
+		return strings.TrimSpace(parts[0])
+	}
+	return ""
+}
+
+// mergeGroup 合并一组相似的日志
+func (l *logWriter) mergeGroup(group []string) []string {
+	if len(group) <= 3 {
+		return group
+	}
+
+	// 如果日志数量超过3条，只保留第一条和最后一条，中间用省略号表示
+	return []string{
+		group[0],
+		fmt.Sprintf("... 省略 %d 条相似日志 ...", len(group)-2),
+		group[len(group)-1],
+	}
 }
 
 // getLogType 判断日志类型
@@ -197,7 +354,12 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
 	// 初始化日志记录器
-	a.logger = &logWriter{ctx: ctx}
+	a.logger = &logWriter{
+		ctx:           ctx,
+		buffer:        make([]string, 0, 100),
+		flushInterval: 500 * time.Millisecond,
+		maxBufferSize: 50,
+	}
 
 	// 设置日志输出到自定义记录器
 	log.SetOutput(a.logger)
