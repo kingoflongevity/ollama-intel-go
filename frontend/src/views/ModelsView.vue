@@ -90,7 +90,7 @@
               详情
             </button>
             <button class="tech-btn tech-btn-sm tech-btn-danger" @click="deleteModel(model)">
-              <el-icon><Delete /></el-icon>
+              <el-icon><DeleteIcon /></el-icon>
               删除
             </button>
           </div>
@@ -236,7 +236,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Download, Refresh, Search, Box, InfoFilled, Delete } from '@element-plus/icons-vue'
+import { Download, Refresh, Search, Box, InfoFilled, Delete as DeleteIcon } from '@element-plus/icons-vue'
 import { ListModels, PullModel, DeleteModel, ShowModel } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import { ElMessage, ElMessageBox } from 'element-plus'
