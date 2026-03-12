@@ -430,14 +430,18 @@ const confirmPullModel = async () => {
   }
 
   const modelName = pullForm.value.name
-  currentPullModel.value = modelName
   
   pullLoading.value = true
   pullStatusText.value = '开始拉取'
   pullCurrentTask.value = `准备拉取模型: ${modelName}`
   
   try {
-    await PullModel(modelName)
+    const result = await PullModel(modelName)
+    // 使用后端返回的规范化模型名称
+    if (result && result.model) {
+      currentPullModel.value = result.model
+      console.log('设置当前拉取模型:', result.model)
+    }
   } catch (error) {
     console.error('拉取模型失败:', error)
     pullStatus.value = 'exception'
