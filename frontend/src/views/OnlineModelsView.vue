@@ -572,7 +572,6 @@ const pullModel = (model) => {
 
 const confirmPullModel = async (modelName) => {
   detailDialogVisible.value = false
-  currentPullModel.value = modelName
   
   // 重置状态
   pullProgress.value = 0
@@ -584,7 +583,12 @@ const confirmPullModel = async (modelName) => {
   pullDialogVisible.value = true
   
   try {
-    await PullModel(modelName)
+    const result = await PullModel(modelName)
+    // 使用后端返回的规范化模型名称
+    if (result && result.model) {
+      currentPullModel.value = result.model
+      console.log('设置当前拉取模型:', result.model)
+    }
   } catch (error) {
     console.error('拉取模型失败:', error)
     pullStatus.value = 'exception'
